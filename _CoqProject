@@ -1,0 +1,6 @@
+-Q . ipcssr
+-arg -w -arg -notation-overridden
+-arg -w -arg -redundant-canonical-projection
+
+src/prelude.v
+src/avlmap.v
