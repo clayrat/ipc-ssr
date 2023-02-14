@@ -82,11 +82,6 @@ Fixpoint del_list (k : K) (xs : seq (K*V)) : seq (K*V) :=
 
 Definition keys : seq (K*V) -> seq K := map fst.
 
-Definition kvlist xs := sorted <%O (keys xs) && uniq (keys xs).
-
-Lemma kvlist_empty : kvlist [::].
-Proof. by []. Qed.
-
 Lemma findlist_empty : find_list [::] =1 (fun=> None).
 Proof. by []. Qed.
 
@@ -129,24 +124,6 @@ case: ifP=>//; move: (order_path_min lt_trans Hp)=>/allP/[apply].
 by rewrite ltNge le_eqVlt Hk orbT.
 Qed.
 
-Lemma kvlist_ins_list k v xs :
-  kvlist xs -> kvlist (ins_list k v xs).
-Proof.
-rewrite /kvlist; case/andP; elim: xs=>//=[[k0 v0]] xs /= IH Hp /andP [N0 U].
-case: cmpE=>Hk /=; first last.
-- rewrite inE negb_or -!andbA; apply/and6P; split=>//; first by case: ltgtP Hk.
-  by apply: (path_notin lt_trans)=>//; apply/(path_le lt_trans)/Hp.
-- by rewrite -Hk Hp N0.
-move: Hp; rewrite !(path_sortedE lt_trans) -andbA.
-case/andP=>H1 H2; case/andP: (IH H2 U)=>->-> /=; rewrite andbT.
-have Hi := inorder_ins_list k v H2.
-apply/andP; split.
-- by rewrite (perm_all _ Hi); case: ifP=>//= _; rewrite Hk.
-rewrite (perm_mem (inorder_ins_list _ _ H2)); case: ifP=>// _.
-rewrite inE negb_or N0 andbT.
-by case: ltgtP Hk.
-Qed.
-
 Lemma inslist_sorted_cat_cons_cat (xs ys : seq (K*V)) k v k' v' :
   sorted <%O (keys (xs ++ [::(k',v')])) ->
   ins_list k v (xs ++ (k',v') :: ys) = if k < k'
@@ -164,18 +141,6 @@ case: (cmpE k k')=>H'.
   by apply: (path_sorted H).
 case: (cmpE k k0) (lt_trans Hya H')=>// H0 _ -> //.
 by apply: (path_sorted H).
-Qed.
-
-Lemma find_ins_list k v xs :
-  find_list (ins_list k v xs) =1 [eta find_list xs with k |-> Some v].
-Proof.
-move=>q; elim: xs=>/=; first by case: cmpE.
-case=>k0 v0 xs IH; case: (cmpE k k0)=>Hk /=.
-- by case: cmpE=>// Hq; case: cmpE (lt_trans Hq Hk).
-- by rewrite Hk; case: cmpE.
-case: (cmpE q k0)=>//.
-- by move=>Hq; move: (lt_trans Hq Hk); rewrite lt_neqAle; case/andP=>/negbTE->.
-by move=>->; move: Hk; rewrite lt_neqAle; case/andP=>/negbTE->.
 Qed.
 
 Lemma del_nop k xs :
@@ -235,6 +200,41 @@ case: (eqVneq k k0)=>/= [<-|N] z; rewrite !inE.
 by case/orP=>[->|/IH] // ->; rewrite orbT.
 Qed.
 
+Definition kvlist xs := sorted <%O (keys xs) && uniq (keys xs).
+
+Lemma kvlist_empty : kvlist [::].
+Proof. by []. Qed.
+
+Lemma kvlist_ins_list k v xs :
+  kvlist xs -> kvlist (ins_list k v xs).
+Proof.
+rewrite /kvlist; case/andP; elim: xs=>//=[[k0 v0]] xs /= IH Hp /andP [N0 U].
+case: cmpE=>Hk /=; first last.
+- rewrite inE negb_or -!andbA; apply/and6P; split=>//; first by case: ltgtP Hk.
+  by apply: (path_notin lt_trans)=>//; apply/(path_le lt_trans)/Hp.
+- by rewrite -Hk Hp N0.
+move: Hp; rewrite !(path_sortedE lt_trans) -andbA.
+case/andP=>H1 H2; case/andP: (IH H2 U)=>->-> /=; rewrite andbT.
+have Hi := inorder_ins_list k v H2.
+apply/andP; split.
+- by rewrite (perm_all _ Hi); case: ifP=>//= _; rewrite Hk.
+rewrite (perm_mem (inorder_ins_list _ _ H2)); case: ifP=>// _.
+rewrite inE negb_or N0 andbT.
+by case: ltgtP Hk.
+Qed.
+
+Lemma find_ins_list k v xs :
+  find_list (ins_list k v xs) =1 [eta find_list xs with k |-> Some v].
+Proof.
+move=>q; elim: xs=>/=; first by case: cmpE.
+case=>k0 v0 xs IH; case: (cmpE k k0)=>Hk /=.
+- by case: cmpE=>// Hq; case: cmpE (lt_trans Hq Hk).
+- by rewrite Hk; case: cmpE.
+case: (cmpE q k0)=>//.
+- by move=>Hq; move: (lt_trans Hq Hk); rewrite lt_neqAle; case/andP=>/negbTE->.
+by move=>->; move: Hk; rewrite lt_neqAle; case/andP=>/negbTE->.
+Qed.
+
 Lemma kvlist_del_list k xs :
   kvlist xs -> kvlist (del_list k xs).
 Proof.
@@ -268,11 +268,9 @@ by move: Hk; rewrite lt_neqAle; case/andP=>/negbTE->.
 Qed.
 
 Definition KVLMap :=
-  @Map.make _ _ (seq (K*V)) [::] ins_list del_list find_list
-  kvlist
-  kvlist_empty findlist_empty
-  kvlist_ins_list (fun k v s _ => find_ins_list k v s)
-  kvlist_del_list find_del_list.
+  Map.make kvlist_empty findlist_empty
+           kvlist_ins_list (fun k v s _ => find_ins_list k v s)
+           kvlist_del_list find_del_list.
 
 End KVList.
 
@@ -346,47 +344,41 @@ Definition is_bal (t : kvtree K V) : bool :=
 Definition incr (t t' : kvtree K V) : bool :=
   ~~ is_node t || (is_bal t && ~~ is_bal t').
 
-(* leaf cases are essentially placeholders for totatity *)
+(* leaf cases are essentially placeholders for totality *)
 
 Definition rot2 (a : kvtree K V) (xk : K) (xv : V)
                 (b : kvtree K V) (zk : K) (zv : V)
                 (c : kvtree K V) : kvtree K V :=
   match b with
   | Node b1 yk yv bb b2 =>
-    let bb1 := if bb == Rh then Lh else Bal in
-    let bb2 := if bb == Lh then Rh else Bal in
-    Node (Node a xk xv bb1 b1) yk yv Bal (Node b2 zk zv bb2 c)
+      let bb1 := if bb == Rh then Lh else Bal in
+      let bb2 := if bb == Lh then Rh else Bal in
+      Node (Node a xk xv bb1 b1) yk yv Bal (Node b2 zk zv bb2 c)
   | Leaf => Node a xk xv Bal (Node leaf zk zv Bal c)
-  end.
-
-Definition bLh (ab : kvtree K V) (zk : K) (zv : V) (c : kvtree K V) : kvtree K V :=
-  match ab with
-  | Node a xk xv Lh  b => Node a xk xv Bal (Node b zk zv Bal c)
-  | Node a xk xv Bal b => Node a xk xv Rh  (Node b zk zv Lh  c)
-  | Node a xk xv Rh  b => rot2 a xk xv b           zk zv c
-  | Leaf               => Node leaf zk zv Bal c
   end.
 
 Definition balL (ab : kvtree K V) (zk : K) (zv : V) (bb : bal) (c : kvtree K V) : kvtree K V :=
   match bb with
-  | Lh  => bLh  ab zk zv     c
+  | Lh  => match ab with
+           | Node a xk xv Lh  b => Node a xk xv Bal (Node b zk zv Bal c)
+           | Node a xk xv Bal b => Node a xk xv Rh  (Node b zk zv Lh  c)
+           | Node a xk xv Rh  b => rot2 a xk xv b           zk zv c
+           | Leaf               => Node leaf zk zv Bal c
+           end
   | Bal => Node ab zk zv Lh  c
   | Rh  => Node ab zk zv Bal c
-  end.
-
-Definition bRh (a : kvtree K V) (xk : K) (xv : V) (bc : kvtree K V) : kvtree K V :=
-  match bc with
-  | Node b zk zv Lh  c => rot2 a xk xv b zk zv c
-  | Node b zk zv Bal c => Node (Node a xk xv Rh  b) zk zv Lh  c
-  | Node b zk zv Rh  c => Node (Node a xk xv Bal b) zk zv Bal c
-  | Leaf               => Node a xk xv Bal leaf
   end.
 
 Definition balR (a : kvtree K V) (xk : K) (xv : V) (bb : bal) (bc : kvtree K V) : kvtree K V :=
   match bb with
   | Lh  => Node a xk xv Bal bc
   | Bal => Node a xk xv Rh  bc
-  | Rh  => bRh  a xk xv     bc
+  | Rh  => match bc with
+           | Node b zk zv Lh  c => rot2 a xk xv b zk zv c
+           | Node b zk zv Bal c => Node (Node a xk xv Rh  b) zk zv Lh  c
+           | Node b zk zv Rh  c => Node (Node a xk xv Bal b) zk zv Bal c
+           | Leaf               => Node a xk xv Bal leaf
+           end
   end.
 
 Fixpoint lookup (t : kvtree K V) (k : K) : option V :=
@@ -815,11 +807,9 @@ by rewrite inorder_delete // find_del_list // inorder_lookup.
 Qed.
 
 Definition AVLMap :=
-  @Map.make _ _ (kvtree K V) leaf upsert delete lookup
-  invariant
-  invariant_empty lookup_empty
-  invariant_upsert lookup_upsert
-  invariant_delete lookup_delete.
+  Map.make invariant_empty lookup_empty
+           invariant_upsert lookup_upsert
+           invariant_delete lookup_delete.
 
 End AVLMap.
 
