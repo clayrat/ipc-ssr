@@ -281,10 +281,17 @@ Qed.
 End Size.
 
 Section Mem.
+Context {A : eqType}.
 
-Lemma all_notin {A : eqType} (p : pred A) xs y :
+Lemma all_notin (p : pred A) xs y :
   all p xs -> ~~ p y -> y \notin xs.
 Proof. by move/allP=>Ha; apply/contra/Ha. Qed.
+
+Lemma all_subset (p : pred A) xs ys : {subset xs <= ys} -> all p ys -> all p xs.
+Proof.
+move=>H /allP Hys.
+by apply/allP=>z Hz; apply/Hys/H.
+Qed.
 
 End Mem.
 
@@ -401,9 +408,12 @@ Qed.
 End Mins.
 
 Section Sorted.
-
 Variable (T : Type) (leT : rel T).
 Hypothesis (leT_tr : transitive leT).
+
+Lemma path_all (xs : seq T) x :
+        path leT x xs -> all (leT x) xs.
+Proof. by rewrite path_sortedE; [case/andP | exact: leT_tr]. Qed.
 
 Lemma sorted_rconsE (xs : seq T) x :
   sorted leT (rcons xs x) = all (leT^~ x) xs && sorted leT xs.
@@ -428,6 +438,16 @@ by rewrite cat_path /= H1 H2.
 Qed.
 
 End Sorted.
+
+Section SortedEq.
+Variable (T : eqType) (ltT : rel T).
+
+Lemma path_notin (xs : seq T) x :
+  transitive ltT -> irreflexive ltT ->
+  path ltT x xs -> x \notin xs.
+Proof. by move=>Ht Hi H; apply: all_notin; [apply: (path_all Ht H) | rewrite Hi]. Qed.
+
+End SortedEq.
 
 Section Allrel.
 
