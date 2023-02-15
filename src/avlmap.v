@@ -813,6 +813,32 @@ Definition AVLMap :=
 
 End AVLMap.
 
+Section AVLMapEq.
+Context {disp : unit} {K : orderType disp} {V : eqType}.
+
+Fixpoint eqkvtree (t1 t2 : kvtree K V) :=
+  match t1, t2 with
+  | Leaf, Leaf => true
+  | Node l1 k1 v1 b1 r1, Node l2 k2 v2 b2 r2 =>
+      [&& k1 == k2, v1 == v2, b1 == b2, eqkvtree l1 l2 & eqkvtree r1 r2 ]
+  | _, _ => false
+  end.
+
+Lemma eqkvtreeP : Equality.axiom eqkvtree.
+Proof.
+elim=> [|l1 IHl k1 v1 b1 r1 IHr] [|l2 k2 v2 b2 r2] /=; try by constructor.
+have [<-/=|Nk] := k1 =P k2; last by apply: ReflectF; case.
+have [<-/=|Nv] := v1 =P v2; last by apply: ReflectF; case.
+have [<-/=|Nb] := b1 =P b2; last by apply: ReflectF; case.
+apply: (iffP andP).
+- by case=>/IHl->/IHr->.
+by case=><-<-; split; [apply/IHl|apply/IHr].
+Qed.
+
+Canonical kvtree_eqMixin := EqMixin eqkvtreeP.
+Canonical kvtree_eqType := Eval hnf in EqType (kvtree K V) kvtree_eqMixin.
+
+End AVLMapEq.
 (*
 From Coq Require Extraction ExtrOcamlBasic ExtrOcamlNatInt.
 

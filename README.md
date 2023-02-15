@@ -2,7 +2,7 @@
 
 A port of https://github.com/coq-contribs/ipc to SSReflect.
 
-Reuses algorithms and proofs from https://github.com/clayrat/fav-ssr.
+Reuses parts of [FCSL-PCM](https://github.com/imdea-software/fcsl-pcm), [FAV](https://github.com/clayrat/fav-ssr) and [compact data structures](https://github.com/affeldt-aist/succinct/).
 
 References:
 
