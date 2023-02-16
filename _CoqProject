@@ -5,3 +5,6 @@
 src/prelude.v
 src/avlmap.v
 src/trees.v
+src/forms.v
+src/derivations.v
+src/kripke_trees.v

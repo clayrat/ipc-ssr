@@ -200,7 +200,14 @@ Section Bool.
 Lemma implyb_trans : transitive implb.
 Proof. by case; case. Qed.
 
+Lemma implyb_tensor a b c d :
+  a ==> c -> b ==> d ->
+  a && b ==> c && d.
+Proof. by case: a=>//= ->. Qed.
+
 End Bool.
+
+#[export] Hint Resolve implybb : core.
 
 Section Arith.
 
@@ -337,14 +344,87 @@ End AllProp.
 Section AllPropEq.
 Context {A : eqType}.
 
-Lemma all_prop_mem (P : A -> Prop) l x :
-  all_prop P l -> x \in l -> P x.
+Lemma all_prop_mem (P : A -> Prop) l :
+  all_prop P l -> {in l, forall x, P x}.
 Proof.
-elim: l=>//= h t IH [Ph H].
+elim: l=>//= h t IH [Ph H] x.
 rewrite inE; case/orP=>[/eqP->|Hx] //.
 by apply: IH.
 Qed.
 
 End AllPropEq.
 
-Arguments all_prop_mem [A P l x].
+Arguments all_prop_mem [A P l].
+
+Section Onth.
+Variable A : Type.
+
+Fixpoint onth (s : seq A) n : option A :=
+  if s is x::sx then if n is nx.+1 then onth sx nx else Some x else None.
+
+(* Lemmas *)
+
+Variant onth_spec s n : bool -> Type :=
+| onth_none   : onth s n = None   -> onth_spec s n false
+| onth_some v : onth s n = Some v -> onth_spec s n true.
+
+Lemma onth_sizeP s n : onth_spec s n (n < size s).
+Proof.
+elim: s n=>/= [|a s IH] n; first by rewrite ltn0; constructor.
+case: n=>[|n] /=; first by apply: (@onth_some _ _ a).
+rewrite ltnS; case: (IH n)=>[|v] H.
+- by constructor.
+by apply: (@onth_some _ _ v).
+Qed.
+
+Lemma size_onth s n : n < size s -> exists x, onth s n = Some x.
+Proof.
+by case: onth_sizeP=>// v H _; exists v.
+Qed.
+
+Lemma onth_size s n x : onth s n = Some x -> n < size s.
+Proof.
+by case: onth_sizeP=>//->.
+Qed.
+
+Lemma size_onthPn s n : reflect (onth s n = None) (size s <= n).
+Proof.
+by rewrite leqNgt; apply: (iffP idP); case: onth_sizeP=>//= v ->.
+Qed.
+
+Lemma onth_sizeN s : onth s (size s) = None.
+Proof. by apply/size_onthPn. Qed.
+
+Lemma nth_onth x0 n s : nth x0 s n = odflt x0 (onth s n).
+Proof.
+elim: s n=>/= [|a s IH] n /=; first by apply: nth_nil.
+by case: n.
+Qed.
+
+Lemma onth_nth x0 n s : n < size s -> onth s n = Some (nth x0 s n).
+Proof.
+elim: s n=>//= a s IH n.
+by rewrite ltnS; case: n.
+Qed.
+
+End Onth.
+
+Section OnthEq.
+Variable A : eqType.
+
+
+Lemma onth_mem (s : seq A) n x :
+        onth s n = Some x ->
+        x \in s.
+Proof.
+by elim: s n=>//= a s IH [[->]|n /IH]; rewrite inE ?eq_refl // orbC =>->.
+Qed.
+
+Lemma onth_index (s : seq A) x :
+        x \in s ->
+        onth s (index x s) = Some x.
+Proof.
+by elim: s=>//=h s IH; rewrite inE eq_sym; case: eqP=>//= ->.
+Qed.
+
+End OnthEq.

@@ -29,12 +29,15 @@ elim => a l; apply: indu.
 by elim: l.
 Qed.
 
+(*
 Fixpoint height (t : tree A) : nat :=
   let: TNode _ l := t in (\max_(i <- map height l) i).+1.
+*)
 
-Definition root (T : tree A) : A := let: TNode w _ := T in w.
+Definition root (t : tree A) : A :=
+  let: TNode w _ := t in w.
 
-Definition children_of_node (t : tree A) :=
+Definition children_of_node (t : tree A) : seq (tree A) :=
   let: TNode _ l := t in l.
 
 End Tree.
@@ -72,30 +75,6 @@ Canonical tree_eqType (A : eqType) := Eval hnf in EqType _ (@tree_eqMixin A).
 Section TreeEq.
 Context {A : eqType}.
 
-Fixpoint successor (t1 t2 : tree A) : bool :=
-  (t1 == t2) || has (successor t1) (children_of_node t2).
-
-Lemma successor_refl : reflexive successor.
-Proof. by case=>/= a ts; rewrite eqxx. Qed.
-
-Lemma successor_trans : transitive successor.
-Proof.
-move=>t2 t1; elim/(@tree_ind' A)=>a3 ts3 /= IH H1.
-case/orP=>[/eqP E2|]; first by rewrite E2 in H1.
-case/hasP=>z Hz Pz; apply/orP; right; apply/hasP; exists z=>//.
-by move: H1 Pz; apply: (all_prop_mem IH).
-Qed.
-
-Lemma child_ind (P : tree A -> Prop) :
-  (forall a, P (lf a)) ->
-  (forall t0 t1, successor t0 t1 -> P t0 -> P t1) ->
-  forall t, P t.
-Proof.
-move=>Pl Pc t.
-apply: tree_ind'=>a [_ |h ts /= [Ph Pts]]; first by apply: Pl.
-by apply: (Pc h)=>//=; rewrite successor_refl orbT.
-Qed.
-
 Fixpoint mem_tree (t : tree A) : pred A :=
   let: TNode x l := t in
   fun a => (a == x) || has (mem_tree^~ a) l.
@@ -111,6 +90,43 @@ Canonical mem_tree_predType := PredType mem_tree.
 Lemma in_tnode a t ts : (t \in TNode a ts) = (t == a) || has (fun q => t \in q) ts.
 Proof. by []. Qed.
 
+(* successor *)
+
+Fixpoint successor (t1 t2 : tree A) : bool :=
+  (t1 == t2) || has (successor t1) (children_of_node t2).
+
+Lemma successor_refl : reflexive successor.
+Proof. by case=>/= a ts; rewrite eqxx. Qed.
+
+Lemma successor_trans : transitive successor.
+Proof.
+move=>t2 t1; elim/(@tree_ind' A)=>a3 ts3 /= IH H1.
+case/orP=>[/eqP E2|]; first by rewrite E2 in H1.
+case/hasP=>z Hz Pz; apply/orP; right; apply/hasP; exists z=>//.
+by move: H1 Pz; apply: (all_prop_mem IH).
+Qed.
+
+Lemma successorP t1 t2 :
+  reflect (t1 = t2 \/ exists2 t, t \in children_of_node t2 & successor t1 t)
+          (successor t1 t2).
+Proof.
+apply: (iffP idP).
+- by case: t2=>/=a2 ts2; case/orP=>[/eqP->|/hasP H]; [left | right].
+case=>[->|[t Ht St]]; first by exact: successor_refl.
+by case: t2 Ht=>/= a ts2 Ht; apply/orP; right; apply/hasP; exists t.
+Qed.
+
+(* never used? *)
+Lemma successor_ind (P : tree A -> Prop) :
+  (forall a, P (lf a)) ->
+  (forall t0 t1, successor t0 t1 -> P t0 -> P t1) ->
+  forall t, P t.
+Proof.
+move=>Pl Pc t.
+apply: tree_ind'=>a [_ |h ts /= [Ph Pts]]; first by apply: Pl.
+by apply: (Pc h)=>//=; rewrite successor_refl orbT.
+Qed.
+
 Lemma successor_subset (t t0 : tree A) :
   successor t t0 -> {subset t <= t0}.
 Proof.
@@ -121,43 +137,44 @@ move=>q /H Hq; rewrite in_tnode /=.
 by apply/orP; right; apply/hasP; exists z.
 Qed.
 
-Context {I : Set} {P : A -> I -> bool}.
+(* monotone *)
 
-Fixpoint Is_Monotone_Tree (t : tree A) : Prop :=
+Context {I : Type}.
+
+Fixpoint Is_Monotone_Tree (P : A -> I -> bool) (t : tree A) : Prop :=
   let: TNode x l := t in
   all_prop (fun t => (forall i, P x i ==> P (root t) i)
-                  /\ Is_Monotone_Tree t) l.
+                  /\ Is_Monotone_Tree P t) l.
 
-Lemma successor_is_monotone_tree (t t0 : tree A) :
-  successor t0 t -> Is_Monotone_Tree t -> Is_Monotone_Tree t0.
+Lemma successor_is_monotone_tree {P} (t t0 : tree A) :
+  successor t0 t -> Is_Monotone_Tree P t -> Is_Monotone_Tree P t0.
 Proof.
 elim/(@tree_ind' A): t=>a ts /= IH.
 case/orP=>[/eqP->|] //; case/hasP=>/= z Hz Sz H.
-apply: (all_prop_mem (x:=z) IH)=>{t0 Sz IH}//.
-by case: (all_prop_mem H Hz).
+apply: (all_prop_mem IH z) =>{t0 Sz IH}//.
+by case: (all_prop_mem H _ Hz).
 Qed.
 
-Definition Is_Monotone (t : tree A) : Prop :=
+Definition Is_Monotone (P : A -> I -> bool) (t : tree A) : Prop :=
   forall t0 t1 : tree A,
   successor t1 t0 -> successor t0 t ->
   forall i : I, P (root t0) i ==> P (root t1) i.
 
-Lemma successor_is_monotone (t t0 : tree A) :
-  successor t0 t -> Is_Monotone t -> Is_Monotone t0.
+Lemma successor_is_monotone {P} (t t0 : tree A) :
+  successor t0 t -> Is_Monotone P t -> Is_Monotone P t0.
 Proof.
 move=>S0; rewrite /Is_Monotone => H t1 t2 S21 S10.
 by apply: H=>//; apply/successor_trans/S0.
 Qed.
 
-Lemma is_monotone_tree_is_monotone t :
-  Is_Monotone_Tree t -> Is_Monotone t.
+Lemma is_monotone_tree_is_monotone {P} t :
+  Is_Monotone_Tree P t -> Is_Monotone P t.
 Proof.
 rewrite /Is_Monotone=>H t0 t1 S10 S0 i.
 move: (successor_is_monotone_tree _ _ S0 H)=>{S0 H}.
 elim/(@tree_ind' A): t0 S10=>a0 ts0 /= IH.
-case/orP=>[/eqP-> _|] /=; first by apply: implybb.
-case/hasP=>/= z Hz Sz H.
-case: (all_prop_mem H Hz)=>Hi Hmz.
+case/orP=>[/eqP-> _|] //=; case/hasP=>/= z Hz Sz H.
+case: (all_prop_mem H _ Hz)=>Hi Hmz.
 apply: (implyb_trans (y:=P (root z) i))=>//.
 by apply: (all_prop_mem IH).
 Qed.
