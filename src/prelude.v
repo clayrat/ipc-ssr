@@ -273,6 +273,17 @@ Qed.
 
 End Arith.
 
+Section Option.
+Context {A : Type}.
+
+Lemma optUnitP (o : option unit) : reflect (o = Some tt) o.
+Proof. by case: o=>[[]|]/=; constructor. Qed.
+
+Lemma negOptP (o : option A) : reflect (o = None) (~~o).
+Proof. by case: o=>[a|]/=; constructor. Qed.
+
+End Option.
+
 Section Mem.
 Context {A : eqType}.
 
@@ -405,6 +416,13 @@ Lemma onth_nth x0 n s : n < size s -> onth s n = Some (nth x0 s n).
 Proof.
 elim: s n=>//= a s IH n.
 by rewrite ltnS; case: n.
+Qed.
+
+Lemma onth_cat n s1 s2 :
+  onth (s1 ++ s2) n = if n < size s1 then onth s1 n else onth s2 (n - size s1).
+Proof.
+elim: s1 n=>/= [|h1 s1 IH] n; first by rewrite subn0.
+by case: n.
 Qed.
 
 End Onth.

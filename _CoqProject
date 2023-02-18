@@ -6,5 +6,9 @@ src/prelude.v
 src/avlmap.v
 src/trees.v
 src/forms.v
+src/normal_forms.v
 src/derivations.v
 src/kripke_trees.v
+src/in_ngamma.v
+src/disjunct.v
+src/catrev.v
