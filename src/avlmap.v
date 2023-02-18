@@ -13,7 +13,7 @@ Module Map.
 Structure Map (K : eqType) (V : Type) : Type :=
   make {tp :> Type;
         empty : tp;
-        update : K -> V -> tp -> tp;
+        update : K -> (V -> V) -> V -> tp -> tp;
         delete : K -> tp -> tp;
         lookup : tp -> K -> option V;
 
@@ -22,9 +22,10 @@ Structure Map (K : eqType) (V : Type) : Type :=
         _ : invar empty;
         _ : lookup empty =1 fun => None;
 
-        _ : forall k v s, invar s -> invar (update k v s);
-        _ : forall k v s, invar s ->
-            lookup (update k v s) =1 [eta (lookup s) with k |-> Some v];
+        _ : forall k f v s, invar s -> invar (update k f v s);
+        _ : forall k f v s, invar s ->
+            lookup (update k f v s) =1 [eta (lookup s) with k |->
+                                          oapp (Some \o f) (Some v) (lookup s k)];
 
         _ : forall k s, invar s -> invar (delete k s);
         _ : forall k s, invar s ->
@@ -65,12 +66,12 @@ Fixpoint find_list (xs : seq (K*V)) (k : K) : option V :=
     end
   else None.
 
-Fixpoint ins_list (k : K) (v : V) (xs : seq (K*V)) : seq (K*V) :=
+Fixpoint ins_list (k : K) (f : V -> V) (v : V) (xs : seq (K*V)) : seq (K*V) :=
   if xs is (k0,v0)::xs' then
     match cmp k k0 with
     | LT => (k,v) :: (k0,v0) :: xs'
-    | EQ => (k,v) :: xs'
-    | GT => (k0,v0) :: ins_list k v xs'
+    | EQ => (k,f v0) :: xs'
+    | GT => (k0,v0) :: ins_list k f v xs'
     end
   else [::(k,v)].
 
@@ -110,9 +111,9 @@ case: cmpE=>// H0; apply.
 by move/path_sorted: H.
 Qed.
 
-Lemma inorder_ins_list k v xs :
+Lemma inorder_ins_list k f v xs :
   sorted <%O (keys xs) ->
-  perm_eq (keys (ins_list k v xs))
+  perm_eq (keys (ins_list k f v xs))
           (if k \in keys xs then keys xs else k :: keys xs).
 Proof.
 elim: xs=>//=[[k0 v0]] xs IH /= Hp.
@@ -124,11 +125,11 @@ case: ifP=>//; move: (order_path_min lt_trans Hp)=>/allP/[apply].
 by rewrite ltNge le_eqVlt Hk orbT.
 Qed.
 
-Lemma inslist_sorted_cat_cons_cat (xs ys : seq (K*V)) k v k' v' :
+Lemma inslist_sorted_cat_cons_cat (xs ys : seq (K*V)) k f v k' v' :
   sorted <%O (keys (xs ++ [::(k',v')])) ->
-  ins_list k v (xs ++ (k',v') :: ys) = if k < k'
-                                         then ins_list k v xs ++ (k',v') :: ys
-                                         else xs ++ ins_list k v ((k',v') :: ys).
+  ins_list k f v (xs ++ (k',v') :: ys) = if k < k'
+                                           then ins_list k f v xs ++ (k',v') :: ys
+                                           else xs ++ ins_list k f v ((k',v') :: ys).
 Proof.
 rewrite /keys; elim: xs=>/=; first by move=>_; case: (cmpE k k').
 move=>[k0 v0] /= xs + H; rewrite map_cat /= in H.
@@ -205,8 +206,8 @@ Definition kvlist xs := sorted <%O (keys xs) && uniq (keys xs).
 Lemma kvlist_empty : kvlist [::].
 Proof. by []. Qed.
 
-Lemma kvlist_ins_list k v xs :
-  kvlist xs -> kvlist (ins_list k v xs).
+Lemma kvlist_ins_list k f v xs :
+  kvlist xs -> kvlist (ins_list k f v xs).
 Proof.
 rewrite /kvlist; case/andP; elim: xs=>//=[[k0 v0]] xs /= IH Hp /andP [N0 U].
 case: cmpE=>Hk /=; first last.
@@ -215,16 +216,17 @@ case: cmpE=>Hk /=; first last.
 - by rewrite -Hk Hp N0.
 move: Hp; rewrite !(path_sortedE lt_trans) -andbA.
 case/andP=>H1 H2; case/andP: (IH H2 U)=>->-> /=; rewrite andbT.
-have Hi := inorder_ins_list k v H2.
+have Hi := inorder_ins_list k f v H2.
 apply/andP; split.
 - by rewrite (perm_all _ Hi); case: ifP=>//= _; rewrite Hk.
-rewrite (perm_mem (inorder_ins_list _ _ H2)); case: ifP=>// _.
+rewrite (perm_mem (inorder_ins_list _ _ _ H2)); case: ifP=>// _.
 rewrite inE negb_or N0 andbT.
 by case: ltgtP Hk.
 Qed.
 
-Lemma find_ins_list k v xs :
-  find_list (ins_list k v xs) =1 [eta find_list xs with k |-> Some v].
+Lemma find_ins_list k f v xs :
+  find_list (ins_list k f v xs) =1 [eta (find_list xs) with k |->
+                                      oapp (Some \o f) (Some v) (find_list xs k)].
 Proof.
 move=>q; elim: xs=>/=; first by case: cmpE.
 case=>k0 v0 xs IH; case: (cmpE k k0)=>Hk /=.
@@ -269,7 +271,7 @@ Qed.
 
 Definition KVLMap :=
   Map.make kvlist_empty findlist_empty
-           kvlist_ins_list (fun k v s _ => find_ins_list k v s)
+           kvlist_ins_list (fun k f v s _ => find_ins_list k f v s)
            kvlist_del_list find_del_list.
 
 End KVList.
@@ -390,20 +392,20 @@ Fixpoint lookup (t : kvtree K V) (k : K) : option V :=
          end
   else None.
 
-Fixpoint upsert (k : K) (v : V) (t : kvtree K V) : kvtree K V :=
+Fixpoint upsert (k : K) (f : V -> V) (v : V) (t : kvtree K V) : kvtree K V :=
   if t is Node l k0 v0 b r
     then match cmp k k0 with
-         | LT => let l' := upsert k v l in
+         | LT => let l' := upsert k f v l in
                  if incr l l' then balL l' k0 v0 b r else Node l' k0 v0 b r
-         | EQ => Node l k v b r
-         | GT => let r' := upsert k v r in
+         | EQ => Node l k (f v0) b r
+         | GT => let r' := upsert k f v r in
                  if incr r r' then balR l k0 v0 b r' else Node l k0 v0 b r'
          end
     else Node leaf k v Bal leaf.
 
-Lemma avl_upsert k v t :
+Lemma avl_upsert k f v t :
   avl t ->
-  avl (upsert k v t) && (height (upsert k v t) == height t + incr t (upsert k v t)).
+  avl (upsert k f v t) && (height (upsert k f v t) == height t + incr t (upsert k f v t)).
 Proof.
 elim/avl_ind=>//= l k0 v0 b r E Hl Hr /andP [Hal Hhl] /andP [Har Hhr].
 case: (cmp k k0)=>/=.
@@ -415,7 +417,7 @@ case: (cmp k k0)=>/=.
   rewrite Hi /= in Hhl.
   case: b E=>/eqP E /=.
   - (* b = Lh *)
-    case E': (upsert k v l) Hi => [|li ki vi bi ri]/=.
+    case E': (upsert k f v l) Hi => [|li ki vi bi ri]/=.
     - (* insert = Leaf, impossible *)
       by rewrite E' addn1 in Hhl.
     (* insert = Node *)
@@ -454,7 +456,7 @@ move=>Hi; case: b E=>/eqP E /=.
 - (* b = Bal *)
   by rewrite Har Hl; move/eqP: Hhr=>->; rewrite Hi E maxnn maxn_addr !eq_refl.
 (* b = Rh *)
-case E': (upsert k v r)=> [|li ki vi bi ri]/=.
+case E': (upsert k f v r)=> [|li ki vi bi ri]/=.
 - (* insert = Leaf, impossible *)
   move: Hhr; rewrite E' /=; case: (incr _ _)=>/= /eqP; first by rewrite addn1.
   by rewrite addn0 E addn1.
@@ -719,9 +721,9 @@ case: cmpE=>// Hk.
 by apply: IHl; rewrite (cat_sorted2 H1).
 Qed.
 
-Theorem inorder_upsert k v t :
+Theorem inorder_upsert k f v t :
   kv_inorder t ->
-  inorder_kv (upsert k v t) = ins_list k v (inorder_kv t).
+  inorder_kv (upsert k f v t) = ins_list k f v (inorder_kv t).
 Proof.
 rewrite /kv_inorder /kvlist /keys; elim: t=>//=l IHl k0 v0 b r IHr.
 rewrite !map_cat /= sorted_cat_cons_cat -andbA => /and3P [H1 H2]; rewrite -cat1s in H2.
@@ -770,22 +772,23 @@ Proof. by []. Qed.
 Theorem lookup_empty : lookup leaf =1 fun => None.
 Proof. by []. Qed.
 
-Corollary invariant_upsert k v t :
-  invariant t -> invariant (upsert k v t).
+Corollary invariant_upsert k f v t :
+  invariant t -> invariant (upsert k f v t).
 Proof.
 rewrite /invariant /kv_inorder /kvlist => /andP [H1 H2].
 rewrite inorder_upsert //.
-apply/andP; split; last by case/andP: (avl_upsert k v H2).
+apply/andP; split; last by case/andP: (avl_upsert k f v H2).
 by apply: kvlist_ins_list.
 Qed.
 
-Corollary lookup_upsert k v t :
+Corollary lookup_upsert k f v t :
   invariant t ->
-  lookup (upsert k v t) =1 [eta lookup t with k |-> Some v].
+  lookup (upsert k f v t) =1 [eta (lookup t) with k |->
+                                oapp (Some \o f) (Some v) (lookup t k)].
 Proof.
 move/[dup] => H; rewrite /invariant /kvlist => /andP [H1 _].
-move=>x /=; rewrite inorder_lookup; last by case/(invariant_upsert k v)/andP: H.
-by rewrite inorder_upsert // find_ins_list inorder_lookup.
+move=>x /=; rewrite inorder_lookup; last by case/(invariant_upsert k f v)/andP: H.
+by rewrite inorder_upsert // find_ins_list !inorder_lookup.
 Qed.
 
 Corollary invariant_delete k t :
@@ -839,6 +842,19 @@ Canonical kvtree_eqMixin := EqMixin eqkvtreeP.
 Canonical kvtree_eqType := Eval hnf in EqType (kvtree K V) kvtree_eqMixin.
 
 End AVLMapEq.
+
+(*
+Section AVLMapEquiv.
+Context {disp : unit} {K : orderType disp} {V : Type}.
+
+
+Definition equiv_ins (key : K) (update : V -> V) (init : V) (t0 t : kvtree K V) : Prop :=
+  oapp (fun v => lookup t key = Some (update v))
+       (lookup t key = Some (update init))
+       (lookup t0 key)
+  /\ forall (k : K), k != key -> lookup t0 k = lookup t k.
+*)
+
 (*
 From Coq Require Extraction ExtrOcamlBasic ExtrOcamlNatInt.
 
