@@ -276,8 +276,12 @@ End Arith.
 Section Option.
 Context {A : Type}.
 
-Lemma optUnitP (o : option unit) : reflect (o = Some tt) o.
-Proof. by case: o=>[[]|]/=; constructor. Qed.
+Lemma optP (o : option A) : reflect (exists a, o = Some a) o.
+Proof.
+case: o=>[a|]/=; constructor.
+- by exists a.
+by case.
+Qed.
 
 Lemma negOptP (o : option A) : reflect (o = None) (~~o).
 Proof. by case: o=>[a|]/=; constructor. Qed.
@@ -430,7 +434,6 @@ End Onth.
 Section OnthEq.
 Variable A : eqType.
 
-
 Lemma onth_mem (s : seq A) n x :
         onth s n = Some x ->
         x \in s.
@@ -446,3 +449,24 @@ by elim: s=>//=h s IH; rewrite inE eq_sym; case: eqP=>//= ->.
 Qed.
 
 End OnthEq.
+
+(*
+Section Takedrop.
+Context {A : Type}.
+
+Fixpoint takedrop (n : nat) (xs : seq A) : (seq A * seq A) :=
+  if n is k.+1 then
+    if xs is x::xs' then
+      let: (xs1, xs2) := takedrop k xs' in
+      (x :: xs1, xs2)
+    else ([::], [::])
+  else ([::], xs).
+
+Lemma takedrop_take_drop n xs : takedrop n xs = (take n xs, drop n xs).
+Proof.
+elim: n xs=>[|k IH][|x xs] //=.
+by move: (IH xs); case E: (takedrop k xs)=>[xs1 xs2] [->->].
+Qed.
+
+End Takedrop.
+*)

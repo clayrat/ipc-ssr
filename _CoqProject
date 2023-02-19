@@ -12,3 +12,9 @@ src/kripke_trees.v
 src/in_ngamma.v
 src/disjunct.v
 src/catrev.v
+src/le_ks.v
+src/forces_ngamma.v
+src/derivable_def_prop.v
+src/derivable_def_type.v
+src/derivable_def.v
+src/derivable_tools.v

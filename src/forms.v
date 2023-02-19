@@ -64,13 +64,9 @@ Fixpoint subst_form (i : A) (a b : form A) : form A :=
 Definition subst_list (i : A) (a : form A) (l : seq (form A)) :=
   map (subst_form i a) l.
 
-(* TODO onth? direction? *)
-Lemma subst_nth (i : A) (g : form A) (n : nat) (l : seq (form A)) (z : form A) :
-  subst_form i g (nth z l n) = nth (subst_form i g z) (subst_list i g l) n.
-Proof.
-elim: l n=>[|h l IH]/= n; first by rewrite !nth_nil.
-by case: n.
-Qed.
+Lemma subst_onth (i : A) (g : form A) (n : nat) (ctx : seq (form A)) :
+  onth (subst_list i g ctx) n = omap (subst_form i g) (onth ctx n).
+Proof. by elim: ctx n=>//= h ctx IH; case. Qed.
 
 End FormEq.
 

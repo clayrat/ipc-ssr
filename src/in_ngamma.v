@@ -44,8 +44,8 @@ have [<-/=|N] := n1 =P n2; last by constructor; case.
 by have [<-/=|Nk] := k1 =P k2; constructor=>//; case.
 Qed.
 
-Canonical normal_form_eqMixin {A} := EqMixin (@eqnestedimpP A).
-Canonical normal_form_eqType {A} := Eval hnf in EqType (nested_imp A) normal_form_eqMixin.
+Canonical nested_imp_eqMixin {A} := EqMixin (@eqnestedimpP A).
+Canonical nested_imp_eqType {A} := Eval hnf in EqType (nested_imp A) nested_imp_eqMixin.
 
 Definition nested_imp2nimp {A} (ni : nested_imp A) :=
   match ni with
@@ -359,7 +359,7 @@ move=>Ha; case=>{c}.
 - by move=>j b n bs H1 H2; apply: (In_Atomic_Imps _ _ _ _ _ _ _ n bs).
 move=>j H; apply: In_Atoms.
 rewrite lookup_upsert //=; case: eqP=>// <-.
-by move/optUnitP: H=>->.
+by case/optP: H; case=>->.
 Qed.
 
 Lemma in_ngamma_ins_a_head work ds ni ai i a :
