@@ -18,3 +18,5 @@ src/derivable_def_prop.v
 src/derivable_def_type.v
 src/derivable_def.v
 src/derivable_tools.v
+src/nminimal.v
+src/ndeco_sound.v

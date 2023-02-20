@@ -100,6 +100,8 @@ Qed.
 
 (***********************************************************************)
 
+(* TODO roll into bijections? *)
+
 Lemma forces_ngamma_shift_ds_work i j work ds ni ai a k :
   forces_ngamma work ((i, j) :: ds) ni ai a k ->
   forces_ngamma (NDisj i j :: work) ds ni ai a k.
@@ -132,10 +134,21 @@ move=>Fn c I.
 by apply/Fn/in_ngamma_shift_ni_work.
 Qed.
 
+Lemma forces_ngamma_shift_ai_work i b work ds ni ai a k :
+  invariant ai ->
+  forces_ngamma work ds ni (update_aimps b i ai) a k ->
+  forces_ngamma (AImp i b :: work) ds ni ai a k.
+Proof.
+move=>Ha; case/boolP: (lookup ai i)=>[/optP [bs] L|N] Fn c I.
+- by apply/Fn/(in_ngamma_shift_work_ai_old _ _ _ _ _ bs).
+by apply/Fn/in_ngamma_shift_work_ai_new.
+Qed.
+
+(*
 Lemma forces_ngamma_shift_ai_work_new i b work ds ni ai a k :
   invariant ai ->
   ~~ lookup ai i ->
-  forces_ngamma work ds ni (upsert i (cons b) [::b] ai) a k ->
+  forces_ngamma work ds ni (update_aimps b i ai) a k ->
   forces_ngamma (AImp i b :: work) ds ni ai a k.
 Proof.
 move=>Ha N Fn c I.
@@ -145,17 +158,18 @@ Qed.
 Lemma forces_ngamma_shift_ai_work_old i b work ds ni ai a k :
   invariant ai ->
   lookup ai i ->
-  forces_ngamma work ds ni (upsert i (cons b) [::b] ai) a k ->
+  forces_ngamma work ds ni (update_aimps b i ai) a k ->
   forces_ngamma (AImp i b :: work) ds ni ai a k.
 Proof.
 move=>Ha /optP [ns E] Fn c I.
 by apply/Fn/(in_ngamma_shift_work_ai_old _ _ _ _ _ ns).
 Qed.
+*)
 
 Lemma forces_ngamma_shift_work_ai i b work ds ni ai a k :
   invariant ai ->
   forces_ngamma (AImp i b :: work) ds ni ai a k ->
-  forces_ngamma work ds ni (upsert i (cons b) [::b] ai) a k.
+  forces_ngamma work ds ni (update_aimps b i ai) a k.
 Proof.
 move=>Ha Fn c I.
 by apply/Fn/in_ngamma_shift_ai_work.
@@ -163,7 +177,7 @@ Qed.
 
 Lemma forces_ngamma_shift_a_work i work ds ni ai a k :
   invariant a ->
-  forces_ngamma work ds ni ai (upsert i (fun=>tt) tt a) k ->
+  forces_ngamma work ds ni ai (update_atoms i a) k ->
   forces_ngamma (NAtom i :: work) ds ni ai a k.
 Proof.
 move=>Ha Fn c I.
@@ -173,7 +187,7 @@ Qed.
 Lemma forces_ngamma_shift_work_a i work ds ni ai a k :
   invariant a ->
   forces_ngamma (NAtom i :: work) ds ni ai a k ->
-  forces_ngamma work ds ni ai (upsert i (fun=>tt) tt a) k.
+  forces_ngamma work ds ni ai (update_atoms i a) k.
 Proof.
 move=>Ha Fn c I.
 by apply/Fn/in_ngamma_shift_a_work.
@@ -240,8 +254,8 @@ Lemma forces_ngamma_shift_work_ai_strength i bs work ds ni ai a k :
   invariant ai ->
   Is_Monotone_kripke_tree k ->
   lookup ai i = Some bs ->
-  forces_ngamma work ds ni ai (upsert i (fun=>tt) tt a) k ->
-  forces_ngamma (bs ++ work) ds ni (delete i ai) (upsert i (fun=>tt) tt a) k.
+  forces_ngamma work ds ni ai (update_atoms i a) k ->
+  forces_ngamma (bs ++ work) ds ni (delete i ai) (update_atoms i a) k.
 Proof.
 move=>Ha Hai M L Fn.
 apply: forces_ngamma_cat_work.

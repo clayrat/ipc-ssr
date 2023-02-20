@@ -260,6 +260,8 @@ Definition kripke_tree (A : orderType disp) : Type := tree (atoms A).
 
 Context {A : orderType disp}.
 
+Definition update_atoms (i : A) := upsert i (fun=>tt) tt.
+
 (* lookup is coerced from option *)
 Definition Is_Monotone_kripke_tree : kripke_tree A -> Prop :=
   Is_Monotone_Tree lookup.

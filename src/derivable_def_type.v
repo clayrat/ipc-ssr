@@ -4,8 +4,8 @@ From ipcssr Require Import forms derivations.
 
 (*******************************************************************)
 
-Variant Derivable {A} (context : seq (form A)) (a : form A) : Type :=
-  Derivable_Intro t : derives context t a -> Derivable context a.
+Variant Derivable {A} (ctx : seq (form A)) (a : form A) : Type :=
+  Derivable_Intro t : derives ctx t a -> Derivable ctx a.
 
-Variant Derivable2 {A} (context : seq (form A)) (a b : form A) : Type :=
-  Derivable2_Intro : Derivable context a -> Derivable context b -> Derivable2 context a b.
+Variant Derivable2 {A} (ctx : seq (form A)) (a b : form A) : Type :=
+  Derivable2_Intro : Derivable ctx a -> Derivable ctx b -> Derivable2 ctx a b.
