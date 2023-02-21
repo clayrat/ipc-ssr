@@ -1,6 +1,6 @@
 From mathcomp Require Import ssreflect ssrbool ssrfun.
 From mathcomp Require Import seq eqtype order.
-From ipcssr Require Import kripke_trees normal_forms in_ngamma.
+From ipcssr Require Import avlmap trees kripke_trees normal_forms in_ngamma.
 
 Section Catrev.
 Context {disp : unit}.
@@ -16,13 +16,20 @@ Fixpoint catrev_d (ds : seq (decorated_nested_imp A)) (ni : seq (nested_imp A)) 
   | (x, k) :: ds => catrev_d ds (Decorated x k :: ni)
   end.
 
+Definition rev_d (ds : seq (decorated_nested_imp A)) : seq (nested_imp A) :=
+  catrev_d ds [::].
+
 Lemma catrev_d_eq ds ni :
   catrev_d ds ni = catrev (map (fun '(x,k) => Decorated x k) ds) ni.
 Proof. by elim: ds ni=>//= [[x k] ds] IH. Qed.
 
+Lemma rev_d_eq ds :
+  rev_d ds = rev (map (fun '(x,k) => Decorated x k) ds).
+Proof. by rewrite /rev_d catrev_d_eq. Qed.
+
 Corollary rev_app_app dni ni :
-  catrev_d dni ni = catrev_d dni [::] ++ ni.
-Proof. by rewrite !catrev_d_eq -catrev_catr. Qed.
+  catrev_d dni ni = rev_d dni ++ ni.
+Proof. by rewrite catrev_d_eq rev_d_eq -catrev_catr. Qed.
 
 Corollary in_ni_x_ni_rev (x x' : nested_imp A) (ni1 ni2 : seq (nested_imp A)) :
   x \in ni1 ++ x' :: ni2 -> x \in ni1 ++ ni2 \/ x = x'.
@@ -49,6 +56,13 @@ Lemma rev_app_lemma2 {T : Type} (dni : seq (decorated_nested_imp A)) (ni : seq (
   (forall dni_ni, dni_ni = catrev_d dni ni -> T) -> T.
 Proof.
 by case: (rev_app_lemma0 dni ni)=>x <-; apply.
+Qed.
+
+Lemma undec_nmem (dni : seq (decorated_nested_imp A)) x :
+  Undecorated x \notin rev_d dni.
+Proof.
+rewrite rev_d_eq mem_rev; apply/negP.
+by case/mapP=>/= [[x1 k] _].
 Qed.
 
 End Catrev.

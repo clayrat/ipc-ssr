@@ -431,6 +431,9 @@ Qed.
 
 End Onth.
 
+Lemma onth_map {A B} n s (f : A -> B) : onth (map f s) n = omap f (onth s n).
+Proof. by elim: s n => [|x s IHs] []. Qed.
+
 Section OnthEq.
 Variable A : eqType.
 

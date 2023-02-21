@@ -1,5 +1,5 @@
 From mathcomp Require Import ssreflect ssrbool ssrfun.
-From mathcomp Require Import ssrnat seq eqtype order.
+From mathcomp Require Import seq eqtype order.
 From ipcssr Require Import avlmap forms normal_forms kripke_trees in_ngamma forces_ngamma le_ks.
 
 Section NDecoSound.

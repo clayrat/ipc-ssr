@@ -20,3 +20,4 @@ src/derivable_def.v
 src/derivable_tools.v
 src/nminimal.v
 src/ndeco_sound.v
+src/cons_counter_model.v
