@@ -1,6 +1,7 @@
 From mathcomp Require Import ssreflect ssrbool ssrfun.
 From mathcomp Require Import ssrnat seq eqtype order.
-From ipcssr Require Import prelude avlmap forms derivations normal_forms kripke_trees in_ngamma forces_ngamma le_ks derivable_def.
+From ipcssr Require Import prelude avlmap forms derivations normal_forms kripke_trees
+                           in_ngamma forces_ngamma le_ks derivable_def.
 
 Section NMinimal.
 Context {disp : unit} {A : orderType disp}.

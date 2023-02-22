@@ -107,11 +107,3 @@ by apply: (In_Atomic_Imps _ _ _ _ _ _ _ n bs).
 Qed.
 
 End ConsCounterModel.
-
-
-From Coq Require Extraction ExtrOcamlBasic ExtrOcamlNatInt.
-
-Extract Inductive reflect => bool [ true false ].
-
-Extraction "ext.ml" cons_counter_model.
-
