@@ -82,6 +82,7 @@ Fixpoint del_list (k : K) (xs : seq (K*V)) : seq (K*V) :=
   else [::].
 
 Definition keys : seq (K*V) -> seq K := map fst.
+Definition values : seq (K*V) -> seq V := map snd.
 
 Lemma findlist_empty : find_list [::] =1 (fun=> None).
 Proof. by []. Qed.
@@ -275,6 +276,34 @@ Definition KVLMap :=
            kvlist_del_list find_del_list.
 
 End KVList.
+
+Section KVListEqSeq.
+Context {disp : unit} {K : orderType disp} {V : eqType}.
+
+Lemma perm_flatten_values_cons k v (xs : seq (K * seq V)) :
+  sorted <%O (keys xs) ->
+  perm_eq (flatten (values (ins_list k (cons v) [::v] xs)))
+          (v :: flatten (values xs)).
+Proof.
+elim: xs=>//=[[k0 v0]] xs IH /= Hp.
+case: cmpE=>Hk //=.
+move/path_sorted: Hp=>/IH H1.
+by rewrite perm_sym -cat1s perm_catCA /= perm_sym (perm_catl _ H1).
+Qed.
+
+Lemma perm_flatten_lookup_del k (xs : seq (K * seq V)) :
+  sorted <%O (keys xs) ->
+  perm_eq (flatten (values xs))
+          (odflt [::] (find_list xs k) ++ flatten (values (del_list k xs))).
+Proof.
+elim: xs=>//=[[k0 v0]] xs IH /= Hp.
+case: cmpE=>Hk //=.
+- move/path_sorted: Hp=>/IH H1.
+  by rewrite perm_sym perm_catCA /= perm_sym (perm_catl _ H1).
+by rewrite del_nop //; apply/(path_le lt_trans)/Hp.
+Qed.
+
+End KVListEqSeq.
 
 Section AVLMap.
 Context {disp : unit} {K : orderType disp} {V : Type}.
@@ -673,12 +702,24 @@ rewrite Har Hl; move: Hhr; rewrite (eqP E) eqn_add2r=>/eqP<-.
 by rewrite maxnn maxn_addr !eq_refl.
 Qed.
 
-(* correctness via sorted lists *)
-
 Fixpoint inorder_kv (t : kvtree K V) : seq (K*V) :=
   if t is Node l k v _ r
-    then inorder_kv l ++ [:: (k,v)] ++ inorder_kv r
+    then inorder_kv l ++ (k,v) :: inorder_kv r
   else [::].
+
+Fixpoint foldr_v {T} (f : V -> T -> T) (x0 : T) (t : kvtree K V) : T :=
+  if t is Node l _ v _ r
+    then foldr_v f (f v (foldr_v f x0 r)) l
+  else x0.
+
+Lemma foldr_inorder {T} (f : V -> T -> T) x0 t :
+  foldr_v f x0 t = foldr (fun kv => f kv.2) x0 (inorder_kv t).
+Proof.
+elim: t x0=>//= l IHl k v _ r IHr x0.
+by rewrite foldr_cat /= -IHr IHl.
+Qed.
+
+(* correctness via sorted lists *)
 
 Lemma inorder_rot2 (l : kvtree K V) ak av m bk bv r :
   inorder_kv (rot2 l ak av m bk bv r) =
@@ -843,17 +884,33 @@ Canonical kvtree_eqType := Eval hnf in EqType (kvtree K V) kvtree_eqMixin.
 
 End AVLMapEq.
 
-(*
-Section AVLMapEquiv.
+Section Regular.
 Context {disp : unit} {K : orderType disp} {V : Type}.
 
+Definition regular (t : kvtree K (seq V)) :=
+  forall k, oapp (negb \o nilp (T:=V)) true (lookup t k).
 
-Definition equiv_ins (key : K) (update : V -> V) (init : V) (t0 t : kvtree K V) : Prop :=
-  oapp (fun v => lookup t key = Some (update v))
-       (lookup t key = Some (update init))
-       (lookup t0 key)
-  /\ forall (k : K), k != key -> lookup t0 k = lookup t k.
-*)
+Remark regular_leaf : regular leaf.
+Proof. by []. Qed.
+
+Lemma regular_del k t :
+  invariant t -> regular t ->
+  regular (delete k t).
+Proof.
+rewrite /regular=>H R l.
+by rewrite lookup_delete // /=; case: eqP.
+Qed.
+
+Lemma regular_ins k v t :
+  invariant t -> regular t ->
+  regular (upsert k (cons v) [::v] t).
+Proof.
+rewrite /regular=>H R l.
+rewrite lookup_upsert=>//=; case: eqP=>//= {l}_.
+by case: (lookup t k).
+Qed.
+
+End Regular.
 
 (*
 From Coq Require Extraction ExtrOcamlBasic ExtrOcamlNatInt.

@@ -16,6 +16,7 @@ src/forces_ngamma.v
 src/forces_gamma.v
 src/ndeco_sound.v
 src/catrev.v
+src/lt_ks.v
 src/disjunct.v
 src/cons_counter_model.v
 src/derivable_def_prop.v
@@ -24,4 +25,7 @@ src/derivable_def.v
 src/derivable_tools.v
 src/minimal.v
 src/nminimal.v
+src/sound.v
 src/nsound.v
+src/nweight.v
+src/nrules.v

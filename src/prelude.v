@@ -453,23 +453,19 @@ Qed.
 
 End OnthEq.
 
-(*
-Section Takedrop.
-Context {A : Type}.
+Section Fold.
 
-Fixpoint takedrop (n : nat) (xs : seq A) : (seq A * seq A) :=
-  if n is k.+1 then
-    if xs is x::xs' then
-      let: (xs1, xs2) := takedrop k xs' in
-      (x :: xs1, xs2)
-    else ([::], [::])
-  else ([::], xs).
+Lemma map_foldr {T1 T2} (f : T1 -> T2) xs :
+  map f xs = foldr (fun x ys => f x :: ys) [::] xs.
+Proof. by []. Qed.
 
-Lemma takedrop_take_drop n xs : takedrop n xs = (take n xs, drop n xs).
-Proof.
-elim: n xs=>[|k IH][|x xs] //=.
-by move: (IH xs); case E: (takedrop k xs)=>[xs1 xs2] [->->].
-Qed.
+Lemma fusion_foldr {T R Q} (g : R -> Q) f0 f1 z0 z1 (xs : seq T) :
+  (forall x y, g (f0 x y) = f1 x (g y)) -> g z0 = z1 ->
+  g (foldr f0 z0 xs) = foldr f1 z1 xs.
+Proof. by move=>Hf Hz; elim: xs=>//= x xs <-. Qed.
 
-End Takedrop.
-*)
+Lemma fusion_map {R T1 T2} (h : T1 -> T2) (f : T2 -> R -> R) (z0 : R) s :
+   foldr f z0 (map h s) = foldr (fun x z => f (h x) z) z0 s.
+Proof. by rewrite map_foldr; apply: fusion_foldr. Qed.
+
+End Fold.
