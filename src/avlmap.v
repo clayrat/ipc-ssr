@@ -375,6 +375,9 @@ Definition is_bal (t : kvtree K V) : bool :=
 Definition incr (t t' : kvtree K V) : bool :=
   ~~ is_node t || (is_bal t && ~~ is_bal t').
 
+Lemma incr_refl t : incr t t = ~~ is_node t.
+Proof. by rewrite /incr andbN orbF. Qed.
+
 (* leaf cases are essentially placeholders for totality *)
 
 Definition rot2 (a : kvtree K V) (xk : K) (xv : V)
@@ -420,6 +423,9 @@ Fixpoint lookup (t : kvtree K V) (k : K) : option V :=
            | GT => lookup r k
          end
   else None.
+
+Lemma lookup_node t k : lookup t k -> is_node t.
+Proof. by case: t. Qed.
 
 Fixpoint upsert (k : K) (f : V -> V) (v : V) (t : kvtree K V) : kvtree K V :=
   if t is Node l k0 v0 b r
@@ -707,18 +713,6 @@ Fixpoint inorder_kv (t : kvtree K V) : seq (K*V) :=
     then inorder_kv l ++ (k,v) :: inorder_kv r
   else [::].
 
-Fixpoint foldr_v {T} (f : V -> T -> T) (x0 : T) (t : kvtree K V) : T :=
-  if t is Node l _ v _ r
-    then foldr_v f (f v (foldr_v f x0 r)) l
-  else x0.
-
-Lemma foldr_inorder {T} (f : V -> T -> T) x0 t :
-  foldr_v f x0 t = foldr (fun kv => f kv.2) x0 (inorder_kv t).
-Proof.
-elim: t x0=>//= l IHl k v _ r IHr x0.
-by rewrite foldr_cat /= -IHr IHl.
-Qed.
-
 (* correctness via sorted lists *)
 
 Lemma inorder_rot2 (l : kvtree K V) ak av m bk bv r :
@@ -855,6 +849,33 @@ Definition AVLMap :=
            invariant_upsert lookup_upsert
            invariant_delete lookup_delete.
 
+(* extra operations and properties *)
+Fixpoint foldr_v {T} (f : V -> T -> T) (x0 : T) (t : kvtree K V) : T :=
+  if t is Node l _ v _ r
+    then foldr_v f (f v (foldr_v f x0 r)) l
+  else x0.
+
+Lemma foldr_inorder {T} (f : V -> T -> T) x0 t :
+  foldr_v f x0 t = foldr (fun kv => f kv.2) x0 (inorder_kv t).
+Proof.
+elim: t x0=>//= l IHl k v _ r IHr x0.
+by rewrite foldr_cat /= -IHr IHl.
+Qed.
+
+Lemma upsert_const t k f v :
+  (forall x, f x = v) ->
+  lookup t k = Some v ->
+  upsert k f v t = t.
+Proof.
+move=>H; elim: t=>//= l1 IHl k1 v1 b1 r1 IHr.
+case: cmpE=>H1.
+- move=>L; rewrite (IHr L) incr_refl (@lookup_node _ k) //.
+  by apply/optP; exists v.
+- by case=>->; rewrite H1 H.
+move=>L; rewrite (IHl L) incr_refl (@lookup_node _ k) //.
+by apply/optP; exists v.
+Qed.
+
 End AVLMap.
 
 Section AVLMapEq.
@@ -884,6 +905,8 @@ Canonical kvtree_eqType := Eval hnf in EqType (kvtree K V) kvtree_eqMixin.
 
 End AVLMapEq.
 
+(* maps for seq don't have empty values *)
+(* TODO generalize to arbitrary predicates? *)
 Section Regular.
 Context {disp : unit} {K : orderType disp} {V : Type}.
 
@@ -915,7 +938,16 @@ End Regular.
 (*
 From Coq Require Extraction ExtrOcamlBasic ExtrOcamlNatInt.
 
+Set Extraction Flag 522.
+Extract Inlined Constant negb => "not".
+Extract Inlined Constant idP => "".
+Extract Inlined Constant eqn => "equal".  (* ints! *)
+Extract Inlined Constant size => "length".
 Extract Inductive reflect => bool [ true false ].
+Extract Inductive alt_spec => bool [ true false ].
+Extract Inductive eq_xor_neq => bool [ true false ].
+Extract Inductive leq_xor_gtn => bool [ true false ].
+Extract Inductive ltn_xor_geq => bool [ true false ].
 
-Extraction "avl_ext.ml" leaf upsert delete lookup.
+Extraction "ext.ml" lookup upsert delete foldr_v.
 *)

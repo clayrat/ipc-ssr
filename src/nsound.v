@@ -16,7 +16,7 @@ Lemma nsound_eqv work ds ni1 ni2 ai a ctx :
 Proof.
 rewrite /nsound =>E S c I.
 apply/S/in_ngamma_eqv/I.
-by rewrite /eqv_ni eq_sym.
+by rewrite eqv_ni_sym.
 Qed.
 
 Lemma nsound_le work ds ni1 ni2 ai a ctx :

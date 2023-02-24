@@ -62,6 +62,15 @@ Qed.
 Definition eqv_ni (ni1 ni2 : seq (nested_imp A)) : bool :=
   map nested_imp2nimp ni1 == map nested_imp2nimp ni2.
 
+Lemma eqv_ni_refl : reflexive eqv_ni.
+Proof. by rewrite /eqv_ni=>x; rewrite eqxx. Qed.
+
+Lemma eqv_ni_sym : symmetric eqv_ni.
+Proof. by rewrite /eqv_ni=>x y; rewrite eq_sym. Qed.
+
+Lemma eqv_ni_trans : transitive eqv_ni.
+Proof. by rewrite /eqv_ni =>y x z /eqP->. Qed.
+
 Lemma le_eqv ni1 ni2 : le_ni ni1 ni2 -> eqv_ni ni1 ni2.
 Proof.
 elim: ni1 ni2=>[|n1 ni1 IH]; case=>[|n2 ni2] //=; first by case: n1.
@@ -72,7 +81,7 @@ by case/and3P=>/eqP<- _ /IH /eqP ->.
 Qed.
 
 Lemma ge_eqv ni1 ni2 : le_ni ni2 ni1 -> eqv_ni ni1 ni2.
-Proof. by rewrite /eqv_ni eq_sym; apply: le_eqv. Qed.
+Proof. by rewrite eqv_ni_sym; apply: le_eqv. Qed.
 
 (*****************************************************************)
 
@@ -98,6 +107,10 @@ exists (Decorated x1 k1 :: ni)=>/=; rewrite !eqxx /= (eqP E2); split=>// x0 k0.
 rewrite !inE /= -orbA; case/orP=>[->|] //.
 by case/H/orP=>-> /=; rewrite !orbT.
 Qed.
+
+Corollary eqv_nimps_eq ni1 ni2 :
+  eqv_ni ni1 ni2 -> map nested_imp2nimp ni1 = map nested_imp2nimp ni2.
+Proof. by move/eqP=>->. Qed.
 
 Corollary in_ngamma_eqv work ds ni1 ni2 ai a c :
   eqv_ni ni1 ni2 ->

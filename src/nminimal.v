@@ -142,7 +142,7 @@ apply: NM=>//; apply: (forces_ngamma_del_ai_rev i bs)=>//.
 by apply: (forces_ngamma_cat_work_tail bs).
 Qed.
 
-Lemma nminimal_shift_ds_work_context work c i j ds ni ai a ctx :
+Lemma nminimal_shift_ds_work_ctx work c i j ds ni ai a ctx :
   (forall k, Is_Monotone_kripke_tree k ->
    forces_t k (nf2form c) -> forces_t k (OrF (Atom i) (Atom j))) ->
   nminimal work ((i, j) :: ds) ni ai a ctx ->
@@ -155,7 +155,7 @@ apply/(forces_ngamma_cons_work_weak c)=>// Fc.
 by rewrite /nf2form -/nf2form; apply: H.
 Qed.
 
-Lemma nminimal_cons_work_cons_context c work ds ni ai a ctx :
+Lemma nminimal_cons_work_cons_ctx c work ds ni ai a ctx :
   nminimal work ds ni ai a ctx ->
   nminimal (c :: work) ds ni ai a (nf2form c :: ctx).
 Proof.
