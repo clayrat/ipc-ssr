@@ -66,6 +66,7 @@ Definition atomic_imps (A : orderType disp) := kvtree A (seq (normal_form A)).
 
 Context {A : orderType disp}.
 
+(* TODO we never use the .2 (i.e. the lookup part) *)
 Definition update_aimps (b : normal_form A) (i : A) := upsert i (cons b) [::b].
 
 (************************************************************************)
@@ -364,12 +365,13 @@ rewrite lookup_upsert //=; case: eqP=>// <-.
 by case/optP: H; case=>->.
 Qed.
 
-Lemma in_ngamma_ins_a_head work ds ni ai i a :
+Lemma in_ngamma_ins_a_head work ds ni ai i a a' :
   invariant a ->
-  in_ngamma work ds ni ai (update_atoms i a).1 (NAtom i).
+  a' = (update_atoms i a).1 ->                  (* fording to force a let-binding at the call site *)
+  in_ngamma work ds ni ai a' (NAtom i).
 Proof.
-move=>Ha; apply: In_Atoms.
-rewrite lookup_upsert //= eqxx.
+move=>Ha Ea; apply: In_Atoms.
+rewrite Ea lookup_upsert //= eqxx.
 by case: (lookup a i).
 Qed.
 
@@ -483,7 +485,7 @@ Lemma in_ngamma_shift_work_a work ds ni ai i a c :
 Proof.
 move=>Ha; case/in_ngamma_cons_work_rev=>[H|->].
 - by apply: in_ngamma_ins_a_tail.
-by apply: in_ngamma_ins_a_head.
+by apply: (in_ngamma_ins_a_head _ _ _ _ _ a).
 Qed.
 
 Lemma in_ngamma_shift_a_work work ds ni ai i a c :

@@ -62,12 +62,13 @@ rewrite /nsound =>Ha S c I.
 by apply/S/in_ngamma_shift_ai_work.
 Qed.
 
-Lemma nsound_shift_work_a i work ds ni ai a ctx :
+Lemma nsound_shift_work_a i work ds ni ai a a' ctx :
   invariant a ->
+  a' = (update_atoms i a).1 -> (* fording to force a let-binding at the call site *)
   nsound (NAtom i :: work) ds ni ai a ctx ->
-  nsound work ds ni ai (update_atoms i a).1 ctx.
+  nsound work ds ni ai a' ctx.
 Proof.
-rewrite /nsound =>Ha S c I.
+rewrite /nsound =>Ha -> S c I.
 by apply/S/in_ngamma_shift_a_work.
 Qed.
 
@@ -141,18 +142,20 @@ case/in_ngamma_cons_work_rev=>[Hi|{d}->].
 by apply/H/S/in_ngamma_cons_work_head.
 Qed.
 
-Lemma nsound_shift_work_ai_strength i bs work ds ni ai a ctx :
+Lemma nsound_shift_work_ai_strength i bs work ds ni ai ai' a a' ctx :
   invariant ai -> invariant a ->
   lookup ai i = Some bs ->
-  nsound work ds ni ai (update_atoms i a).1 ctx ->
-  nsound (bs ++ work) ds ni (delete i ai).1 (update_atoms i a).1 ctx.
+  ai' = (delete i ai).1 ->
+  a' = (update_atoms i a).1 ->
+  nsound work ds ni ai a' ctx ->
+  nsound (bs ++ work) ds ni ai' a' ctx.
 Proof.
-move=>Hai Ha L S.
+move=>Hai Ha L Eai Ea S.
 apply/nsound_cat_work=>[n b E|].
 - apply: (derivable_a_a_imp_b__derivable_b _ (Atom i)).
-  - by apply/(S (NAtom i))/in_ngamma_ins_a_head.
+  - by apply/(S (NAtom i))/(in_ngamma_ins_a_head _ _ _ _ _ a).
   by apply/(S (AImp i b))/In_Atomic_Imps/E.
-by apply: nsound_del_ai.
+by rewrite Eai; apply: nsound_del_ai.
 Qed.
 
 End NSound.

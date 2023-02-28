@@ -262,7 +262,7 @@ move=>Ha Hai M L Fn.
 apply: forces_ngamma_cat_work.
 - move=>n b E; apply: (forces_imp_app_t _ (Atom i)).
   - rewrite (_ : Atom i = nf2form (NAtom i)) //; apply: Fn.
-    by apply: in_ngamma_ins_a_head.
+    by apply: (in_ngamma_ins_a_head _ _ _ _ _ a).
   rewrite (_ : Imp (Atom i) (nf2form b) = nf2form (AImp i b )) //; apply: Fn.
   by apply/In_Atomic_Imps/E.
 by apply: forces_ngamma_del_ai.

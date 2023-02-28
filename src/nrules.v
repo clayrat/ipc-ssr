@@ -108,17 +108,18 @@ apply: (NRefutable _ _ _ _ _ _ _ k)=>//.
 by apply/forces_ngamma_shift_ai_work.
 Qed.
 
-Lemma rule_shift_work_a goal i work ds ni ai a ctx :
+Lemma rule_shift_work_a goal i work ds ni ai a a' ctx :
   invariant a ->
-  nsearch_spec goal work ds ni ai (update_atoms i a).1 ctx ->
+  a' = (update_atoms i a).1 ->                  (* fording to force a let-binding at the call site *)
+  nsearch_spec goal work ds ni ai a' ctx ->
   nsearch_spec goal (NAtom i :: work) ds ni ai a ctx.
 Proof.
-rewrite /nsearch_spec =>Ha H C S M.
+rewrite /nsearch_spec =>Ha Ea H C S M.
 case: H.
-- by apply: deco_sound_shift_work_a.
-- by apply: nsound_shift_work_a.
-- by apply: nminimal_shift_work_a.
-move=>ni1 Ln C1 S1.
+- by rewrite Ea; apply: deco_sound_shift_work_a.
+- by apply: (nsound_shift_work_a i _ _ _ _ a a').
+- by rewrite Ea; apply: nminimal_shift_work_a.
+rewrite Ea=>ni1 Ln C1 S1.
 apply: (NSearch_Res _ _ _ _ _ _ _ ni1)=>//.
 - by apply: deco_sound_shift_a_work.
 case: S1; first by apply: NDerivable.
@@ -161,9 +162,8 @@ Lemma contradiction_atoms goal i work ds ni ai a ctx :
   nsearch_spec goal (NAtom i :: work) ds ni ai a ctx.
 Proof.
 move=>Ha L H.
-apply: rule_shift_work_a=>//.
-suff: (update_atoms i a).1 = a by move=>->.
-by apply: upsert_const=>//; case/optP: L=>[[]].
+apply: (rule_shift_work_a goal i _ _ _ _ a a)=>//.
+by apply/esym/upsert_const=>//; case/optP: L=>[[]].
 Qed.
 
 (**************************************************************************)
@@ -202,21 +202,23 @@ Qed.
 
 (****************************************************************)
 
-Lemma left_p_imp_ai goal i work ds ni bs ai a ctx :
+Lemma left_p_imp_ai goal i work ds ni bs ai ai' a a' ctx :
   invariant ai -> invariant a ->
   lookup ai i = Some bs ->
-  nsearch_spec goal (bs ++ work) ds ni (delete i ai).1 (update_atoms i a).1 ctx ->
+  ai' = (delete i ai).1 ->      (* fording to force a let-binding at the call site *)
+  a' = (update_atoms i a).1 ->
+  nsearch_spec goal (bs ++ work) ds ni ai' a' ctx ->
   nsearch_spec goal (NAtom i :: work) ds ni ai a ctx.
 Proof.
-rewrite /nsearch_spec =>Hai Ha L H C S M.
+rewrite /nsearch_spec =>Hai Ha L Eai Ea H C S M.
 case: H.
-- apply: deco_sound_shift_work_ai_strength=>//.
+- rewrite Eai Ea; apply: deco_sound_shift_work_ai_strength=>//.
   by apply: deco_sound_shift_work_a.
-- apply: nsound_shift_work_ai_strength=>//.
-  by apply: nsound_shift_work_a.
-- apply: nminimal_shift_work_ai_weak=>//.
+- apply: (nsound_shift_work_ai_strength i _ _ _ _ ai ai' a a')=>//.
+  by apply: (nsound_shift_work_a i _ _ _ _ a a').
+- rewrite Eai Ea; apply: nminimal_shift_work_ai_weak=>//.
   by apply: nminimal_shift_work_a.
-move=>ni1 Ln C1 S1.
+rewrite Eai Ea=>ni1 Ln C1 S1.
 apply: (NSearch_Res _ _ _ _ _ _ _ ni1)=>//.
 - apply: deco_sound_shift_a_work=>//.
   by apply: (deco_sound_shift_work_ai_weak i bs).

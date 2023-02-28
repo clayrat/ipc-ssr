@@ -64,17 +64,16 @@ move=>+ work IHw ds ni ai a Ha Hai + R D G; case.
   move=>i L.
   case: (eqVneq goal i)=>[<-|N].
   - by apply/nax/in_ngamma_cons_work_head.
-  set aot := (update_atoms i a).
-  case La: aot=>[a' ot]; move: La.
-  rewrite (surjective_pairing aot); case=>_.
+  case La: (update_atoms i a)=>[a' ot]; move: La.
+  rewrite (surjective_pairing (update_atoms _ _)); case=>Ha'.
   rewrite lookup_upsert //; case: ot=>[[]|] La.
   - apply: contradiction_atoms=>//; first by apply/optP; exists tt.
     by apply: IHw.
   case Lai: (delete i ai)=>[ai' obs]; move: Lai.
-  rewrite (surjective_pairing (delete _ _)); case=>_.
+  rewrite (surjective_pairing (delete _ _)); case=>Hai'.
   rewrite lookup_delete //; case: obs=>[bs|] Lai.
-  - apply: (left_p_imp_ai _ _ _ _ _ bs)=>//.
-    apply: IHn.
+  - apply: (left_p_imp_ai _ _ _ _ _ bs _ ai' _ a')=>//.
+    apply: IHn; rewrite -?Hai' -?Ha'.
     - by apply: invariant_upsert.
     - by apply: invariant_delete.
     - apply: (leq_trans (n:=nweight_Sequent work ds ni ai)).
@@ -83,8 +82,8 @@ move=>+ work IHw ds ni ai a Ha Hai + R D G; case.
     - by apply: regular_del.
     - by apply: disjs_delete_ai.
     by apply: goal_disj_insert_a.
-  apply: rule_shift_work_a=>//.
-  apply: IHw=>//.
+  apply: (rule_shift_work_a goal _ _ _ _ _ _ a')=>//.
+  apply: IHw=>//; rewrite -Ha'.
   - by apply: invariant_upsert.
   - by apply: disjs_insert_a=>//; apply/negOptP.
   by apply: goal_disj_insert_a.
@@ -117,7 +116,7 @@ Theorem nsearch :
  (forall (a : form) (k : kripke_tree),
   Is_Monotone_kripke_tree k ->
   (forall b : normal_form, In b work -> forces_t k (nf2form b)) ->
-  In a ctx -> forces_t k a) ->
+  In a ctx -> forces_t k a) ->rewrite -H';
  nsearch_spec_result_aux goal work DNil NNil AI_Nil ANil ctx.
 intros goal work ctx sound minimal.
 elim
@@ -136,7 +135,7 @@ unfold AI_Nil in |- *.
 unfold nf_list in |- *.
 apply regular_AVL_NIL.
 
-unfold a_ai_disj in |- *.
+unfold a_a.i_disj in |- *.
 intros i lookup_i bs lookup_bs.
 inversion_clear lookup_i.
 
