@@ -90,7 +90,7 @@ Qed.
 (* new + old *)
 Lemma deco_sound_shift_ai_work i b work ds ni ai a :
   invariant ai ->
-  deco_sound work ds ni (update_aimps b i ai) a ->
+  deco_sound work ds ni (update_aimps b i ai).1 a ->
   deco_sound (AImp i b :: work) ds ni ai a.
 Proof.
 rewrite /deco_sound=>Ha C k i0 i1 c D.
@@ -101,7 +101,7 @@ Qed.
 Lemma deco_sound_shift_work_ai i b work ds ni ai a :
   invariant ai ->
   deco_sound (AImp i b :: work) ds ni ai a ->
-  deco_sound work ds ni (update_aimps b i ai) a.
+  deco_sound work ds ni (update_aimps b i ai).1 a.
 Proof.
 rewrite /deco_sound=>Ha C k i0 i1 c D.
 case: (C _ _ _ _ D)=>{C D}M F NF; split=>//.
@@ -110,7 +110,7 @@ Qed.
 
 Lemma deco_sound_shift_a_work i work ds ni ai a :
   invariant a ->
-  deco_sound work ds ni ai (update_atoms i a) ->
+  deco_sound work ds ni ai (update_atoms i a).1 ->
   deco_sound (NAtom i :: work) ds ni ai a.
 Proof.
 rewrite /deco_sound=>Ha C k i0 i1 c D.
@@ -121,7 +121,7 @@ Qed.
 Lemma deco_sound_shift_work_a i work ds ni ai a :
   invariant a ->
   deco_sound (NAtom i :: work) ds ni ai a ->
-  deco_sound work ds ni ai (update_atoms i a).
+  deco_sound work ds ni ai (update_atoms i a).1.
 Proof.
 rewrite /deco_sound=>Ha C k i0 i1 c D.
 case: (C _ _ _ _ D)=>{C D}M F NF; split=>//.
@@ -210,7 +210,7 @@ Qed.
 
 Lemma deco_sound_shift_work_ai_weak i bs work ds ni ai a :
   invariant ai -> lookup ai i = Some bs ->
-  deco_sound (bs ++ work) ds ni (delete i ai) a ->
+  deco_sound (bs ++ work) ds ni (delete i ai).1 a ->
   deco_sound work ds ni ai a.
 Proof.
 rewrite /deco_sound=>Ha L C k i0 i1 d D.
@@ -221,8 +221,8 @@ Qed.
 Lemma deco_sound_shift_work_ai_strength i bs work ds ni ai a :
   invariant ai -> invariant a ->
   lookup ai i = Some bs ->
-  deco_sound work ds ni ai (update_atoms i a) ->
-  deco_sound (bs ++ work) ds ni (delete i ai) (update_atoms i a).
+  deco_sound work ds ni ai (update_atoms i a).1 ->
+  deco_sound (bs ++ work) ds ni (delete i ai).1 (update_atoms i a).1.
 Proof.
 rewrite /deco_sound=>Hai Ha L C k i0 i1 d D.
 case: (C _ _ _ _ D)=>{d C D}M F NF; split=>//.

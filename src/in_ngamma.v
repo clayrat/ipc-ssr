@@ -265,7 +265,7 @@ Qed.
 Lemma in_ngamma_ins_ai_tail work ds ni i b ai a c :
   invariant ai ->
   in_ngamma work ds ni ai a c ->
-  in_ngamma work ds ni (update_aimps b i ai) a c.
+  in_ngamma work ds ni (update_aimps b i ai).1 a c.
 Proof.
 move=>Ha; case=>{c}.
 - by move=>n c; apply: (In_Work _ _ _ _ _ n).
@@ -274,7 +274,7 @@ move=>Ha; case=>{c}.
 - move=>j b0 n bs H1 H2.
   case: (eqVneq j i)=>[<-|N].
   - apply: (In_Atomic_Imps _ _ _ _ _ _ _ n.+1 (b::bs))=>//.
-    by rewrite lookup_upsert //= eqxx /= H1.
+    by rewrite lookup_upsert //= eqxx H1.
   apply: (In_Atomic_Imps _ _ _ _ _ _ _ n bs)=>//.
   by rewrite lookup_upsert //= (negbTE N).
 by move=>k H; apply: In_Atoms.
@@ -282,7 +282,7 @@ Qed.
 
 Lemma in_ngamma_ins_ai_head_new work ds ni i b ai a :
   invariant ai -> ~~ lookup ai i ->
-  in_ngamma work ds ni (update_aimps b i ai) a (AImp i b).
+  in_ngamma work ds ni (update_aimps b i ai).1 a (AImp i b).
 Proof.
 move=>Ha H; apply: (In_Atomic_Imps _ _ _ _ _ _ _ 0 [::b])=>//=.
 by rewrite lookup_upsert //= eqxx; move/negOptP: H=>->.
@@ -290,7 +290,7 @@ Qed.
 
 Lemma in_ngamma_ins_ai_head_old work ds ni i b bs ai a :
   invariant ai -> lookup ai i = Some bs ->
-  in_ngamma work ds ni (update_aimps b i ai) a (AImp i b).
+  in_ngamma work ds ni (update_aimps b i ai).1 a (AImp i b).
 Proof.
 move=>Ha H; apply: (In_Atomic_Imps _ _ _ _ _ _ _ 0 (b::bs))=>//=.
 by rewrite lookup_upsert //= eqxx H.
@@ -298,7 +298,7 @@ Qed.
 
 Lemma in_ngamma_ins_ai_rev work ds ni i b ai a c :
   invariant ai ->
-  in_ngamma work ds ni (update_aimps b i ai) a c ->
+  in_ngamma work ds ni (update_aimps b i ai).1 a c ->
   in_ngamma work ds ni ai a c + {c = AImp i b}.
 Proof.
 move=>Ha; case=>{c}.
@@ -318,7 +318,7 @@ Qed.
 
 Lemma in_ngamma_del_ai_tail work ds ni i ai a c :
   invariant ai ->
-  in_ngamma work ds ni (delete i ai) a c ->
+  in_ngamma work ds ni (delete i ai).1 a c ->
   in_ngamma work ds ni ai a c.
 Proof.
 move=>Ha; case=>{c}.
@@ -334,7 +334,7 @@ Lemma in_ngamma_del_ai_rev work ds ni i bs ai a c :
   invariant ai ->
   lookup ai i = Some bs ->
   in_ngamma work ds ni ai a c ->
-  in_ngamma work ds ni (delete i ai) a c +
+  in_ngamma work ds ni (delete i ai).1 a c +
     {exists b n, onth bs n = Some b /\ c = AImp i b}.
 Proof.
 move=>Ha L; case=>{c}.
@@ -352,7 +352,7 @@ Qed.
 Lemma in_ngamma_ins_a_tail work ds ni ai i a c :
   invariant a ->
   in_ngamma work ds ni ai a c ->
-  in_ngamma work ds ni ai (update_atoms i a) c.
+  in_ngamma work ds ni ai (update_atoms i a).1 c.
 Proof.
 move=>Ha; case=>{c}.
 - by move=>n c; apply: (In_Work _ _ _ _ _ n).
@@ -366,7 +366,7 @@ Qed.
 
 Lemma in_ngamma_ins_a_head work ds ni ai i a :
   invariant a ->
-  in_ngamma work ds ni ai (update_atoms i a) (NAtom i).
+  in_ngamma work ds ni ai (update_atoms i a).1 (NAtom i).
 Proof.
 move=>Ha; apply: In_Atoms.
 rewrite lookup_upsert //= eqxx.
@@ -375,7 +375,7 @@ Qed.
 
 Lemma in_ngamma_ins_a_rev work ds ni ai i a c :
   invariant a ->
-  in_ngamma work ds ni ai (update_atoms i a) c ->
+  in_ngamma work ds ni ai (update_atoms i a).1 c ->
   in_ngamma work ds ni ai a c + {c = NAtom i}.
 Proof.
 move=>Ha; case=>{c}.
@@ -449,7 +449,7 @@ Qed.
 Lemma in_ngamma_shift_work_ai_new work ds ni i b ai a c :
   invariant ai -> ~~ lookup ai i ->
   in_ngamma (AImp i b :: work) ds ni ai a c ->
-  in_ngamma work ds ni (update_aimps b i ai) a c.
+  in_ngamma work ds ni (update_aimps b i ai).1 a c.
 Proof.
 move=>Ha Hl; case/in_ngamma_cons_work_rev=>[H|->].
 - by apply: in_ngamma_ins_ai_tail.
@@ -459,7 +459,7 @@ Qed.
 Lemma in_ngamma_shift_work_ai_old work ds ni i b bs ai a c :
   invariant ai -> lookup ai i = Some bs ->
   in_ngamma (AImp i b :: work) ds ni ai a c ->
-  in_ngamma work ds ni (update_aimps b i ai) a c.
+  in_ngamma work ds ni (update_aimps b i ai).1 a c.
 Proof.
 move=>Ha Hl; case/in_ngamma_cons_work_rev=>[H|->].
 - by apply: in_ngamma_ins_ai_tail.
@@ -468,7 +468,7 @@ Qed.
 
 Lemma in_ngamma_shift_ai_work work ds ni i b ai a c :
   invariant ai ->
-  in_ngamma work ds ni (update_aimps b i ai) a c ->
+  in_ngamma work ds ni (update_aimps b i ai).1 a c ->
   in_ngamma (AImp i b :: work) ds ni ai a c.
 Proof.
 move=>Ha; case/in_ngamma_ins_ai_rev=>// [H|->].
@@ -479,7 +479,7 @@ Qed.
 Lemma in_ngamma_shift_work_a work ds ni ai i a c :
   invariant a ->
   in_ngamma (NAtom i :: work) ds ni ai a c ->
-  in_ngamma work ds ni ai (update_atoms i a) c.
+  in_ngamma work ds ni ai (update_atoms i a).1 c.
 Proof.
 move=>Ha; case/in_ngamma_cons_work_rev=>[H|->].
 - by apply: in_ngamma_ins_a_tail.
@@ -488,7 +488,7 @@ Qed.
 
 Lemma in_ngamma_shift_a_work work ds ni ai i a c :
   invariant a ->
-  in_ngamma work ds ni ai (update_atoms i a) c ->
+  in_ngamma work ds ni ai (update_atoms i a).1 c ->
   in_ngamma (NAtom i :: work) ds ni ai a c.
 Proof.
 move=>Ha; case/in_ngamma_ins_a_rev=>// [H|->].

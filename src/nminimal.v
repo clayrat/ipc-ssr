@@ -54,7 +54,7 @@ Qed.
 Lemma nminimal_shift_work_ai i b work ds ni ai a ctx :
   invariant ai ->
   nminimal (AImp i b :: work) ds ni ai a ctx ->
-  nminimal work ds ni (update_aimps b i ai) a ctx.
+  nminimal work ds ni (update_aimps b i ai).1 a ctx.
 Proof.
 rewrite /nminimal=>Ha NM k M F.
 by apply: NM=>//; apply: forces_ngamma_shift_ai_work.
@@ -83,7 +83,7 @@ Qed.
 Lemma nminimal_shift_work_a i work ds ni ai a ctx :
   invariant a ->
   nminimal (NAtom i :: work) ds ni ai a ctx ->
-  nminimal work ds ni ai (update_atoms i a) ctx.
+  nminimal work ds ni ai (update_atoms i a).1 ctx.
 Proof.
 rewrite /nminimal=>Ha NM k M F.
 by apply: NM=>//; apply: forces_ngamma_shift_a_work.
@@ -132,7 +132,7 @@ Qed.
 Lemma nminimal_shift_work_ai_weak i bs work ds ni ai a ctx :
   invariant ai -> lookup ai i = Some bs ->
   nminimal work ds ni ai a ctx ->
-  nminimal (bs ++ work) ds ni (delete i ai) a ctx.
+  nminimal (bs ++ work) ds ni (delete i ai).1 a ctx.
 Proof.
 rewrite /nminimal=>Ha L NM k M F.
 apply: NM=>//; apply: (forces_ngamma_del_ai_rev i bs)=>//.

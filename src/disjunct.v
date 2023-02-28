@@ -14,7 +14,7 @@ Definition a_goal_disj (a : atoms A) (goal : A) : Prop :=
 Lemma disjs_insert_ai i b a ai :
   invariant ai ->
   a_ai_disj a ai -> ~~ lookup a i ->
-  a_ai_disj a (update_aimps b i ai).
+  a_ai_disj a (update_aimps b i ai).1.
 Proof.
 rewrite /a_ai_disj=>Ha Hd Hi j Hj.
 rewrite lookup_upsert //=; case: eqP=>[E|_].
@@ -25,7 +25,7 @@ Qed.
 Lemma disjs_delete_ai i a ai :
   invariant a -> invariant ai ->
   a_ai_disj a ai ->
-  a_ai_disj (update_atoms i a) (delete i ai).
+  a_ai_disj (update_atoms i a).1 (delete i ai).1.
 Proof.
 rewrite /a_ai_disj =>Ha Hai Hd j.
 rewrite lookup_upsert // lookup_delete //=; case: eqP=>//= _.
@@ -35,7 +35,7 @@ Qed.
 Lemma goal_disj_insert_a i goal a :
   invariant a ->
   a_goal_disj a goal -> goal != i ->
-  a_goal_disj (update_atoms i a) goal.
+  a_goal_disj (update_atoms i a).1 goal.
 Proof.
 rewrite /a_goal_disj =>Ha Hd N.
 by rewrite lookup_upsert //= (negbTE N).
@@ -44,7 +44,7 @@ Qed.
 Lemma disjs_insert_a i a ai :
   invariant a ->
   a_ai_disj a ai -> ~~ lookup ai i -> (* could also be positive: lookup a i *)
-  a_ai_disj (update_atoms i a) ai.
+  a_ai_disj (update_atoms i a).1 ai.
 Proof.
 rewrite /a_ai_disj =>Ha Hd N j.
 rewrite lookup_upsert //=; case: eqP=>[{j}->|_ ] //.

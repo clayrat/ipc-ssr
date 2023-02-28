@@ -52,12 +52,6 @@ elim: dni ni=>/= [|[x k] dni IH] ni; first by exists ni.
 by apply: IH.
 Qed.
 
-Lemma rev_app_lemma2 {T : Type} (dni : seq (decorated_nested_imp A)) (ni : seq (nested_imp A)) :
-  (forall dni_ni, dni_ni = catrev_d dni ni -> T) -> T.
-Proof.
-by case: (rev_app_lemma0 dni ni)=>x <-; apply.
-Qed.
-
 Lemma undec_nmem (dni : seq (decorated_nested_imp A)) x :
   Undecorated x \notin rev_d dni.
 Proof.

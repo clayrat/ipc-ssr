@@ -69,7 +69,7 @@ Proof. by rewrite /nweight_ai foldr_inorder -fusion_map foldrE big_map. Qed.
 
 Remark nweight_ai_ins i b ai :
   invariant ai ->
-  nweight_ai (update_aimps b i ai) = nweight (nf2form (AImp i b)) + nweight_ai ai.
+  nweight_ai (update_aimps b i ai).1 = nweight (nf2form (AImp i b)) + nweight_ai ai.
 Proof.
 case/andP=>Ha _; rewrite /nf2form -/nf2form /= add0n !nweight_aiE
   -!(big_map snd predT nweight_bs) /= -/values.
@@ -83,7 +83,7 @@ Qed.
 Remark nweight_ai_del i bs ai :
   invariant ai -> regular ai ->
   lookup ai i = Some bs ->
-  (nweight_work bs + nweight_ai (delete i ai) < nweight_ai ai)%N.
+  (nweight_work bs + nweight_ai (delete i ai).1 < nweight_ai ai)%N.
 Proof.
 case/andP=>Ha _ R L.
 rewrite nweight_workE !nweight_aiE -!(big_map snd predT nweight_bs) /= -/values.
@@ -139,7 +139,7 @@ Qed.
 Lemma nweight_shift_work_ai i b work ds ni ai :
   invariant ai ->
   nweight_Sequent (AImp i b :: work) ds ni ai =
-  nweight_Sequent work ds ni (update_aimps b i ai).
+  nweight_Sequent work ds ni (update_aimps b i ai).1.
 Proof.
 move=>Ha.
 by rewrite /nweight_Sequent /= nweight_ai_ins //= -/nf2form add0n
@@ -151,7 +151,7 @@ Qed.
 Lemma nweight_shift_ai_work i bs work ds ni ai :
   invariant ai -> regular ai ->
   lookup ai i = Some bs ->
-  (nweight_Sequent (bs ++ work) ds ni (delete i ai) < nweight_Sequent work ds ni ai)%N.
+  (nweight_Sequent (bs ++ work) ds ni (delete i ai).1 < nweight_Sequent work ds ni ai)%N.
 Proof.
 move=>Ha R L.
 rewrite /nweight_Sequent /= nweight_work_cat !addnA

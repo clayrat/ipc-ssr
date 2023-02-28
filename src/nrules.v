@@ -91,7 +91,7 @@ Qed.
 
 Lemma rule_shift_work_ai goal i b work ds ni ai a ctx :
   invariant ai ->
-  nsearch_spec goal work ds ni (update_aimps b i ai) a ctx ->
+  nsearch_spec goal work ds ni (update_aimps b i ai).1 a ctx ->
   nsearch_spec goal (AImp i b :: work) ds ni ai a ctx.
 Proof.
 rewrite /nsearch_spec =>Hai H C S M.
@@ -110,7 +110,7 @@ Qed.
 
 Lemma rule_shift_work_a goal i work ds ni ai a ctx :
   invariant a ->
-  nsearch_spec goal work ds ni ai (update_atoms i a) ctx ->
+  nsearch_spec goal work ds ni ai (update_atoms i a).1 ctx ->
   nsearch_spec goal (NAtom i :: work) ds ni ai a ctx.
 Proof.
 rewrite /nsearch_spec =>Ha H C S M.
@@ -162,7 +162,7 @@ Lemma contradiction_atoms goal i work ds ni ai a ctx :
 Proof.
 move=>Ha L H.
 apply: rule_shift_work_a=>//.
-suff: update_atoms i a = a by move=>->.
+suff: (update_atoms i a).1 = a by move=>->.
 by apply: upsert_const=>//; case/optP: L=>[[]].
 Qed.
 
@@ -205,7 +205,7 @@ Qed.
 Lemma left_p_imp_ai goal i work ds ni bs ai a ctx :
   invariant ai -> invariant a ->
   lookup ai i = Some bs ->
-  nsearch_spec goal (bs ++ work) ds ni (delete i ai) (update_atoms i a) ctx ->
+  nsearch_spec goal (bs ++ work) ds ni (delete i ai).1 (update_atoms i a).1 ctx ->
   nsearch_spec goal (NAtom i :: work) ds ni ai a ctx.
 Proof.
 rewrite /nsearch_spec =>Hai Ha L H C S M.

@@ -13,8 +13,8 @@ Module Map.
 Structure Map (K : eqType) (V : Type) : Type :=
   make {tp :> Type;
         empty : tp;
-        update : K -> (V -> V) -> V -> tp -> tp;
-        delete : K -> tp -> tp;
+        update : K -> (V -> V) -> V -> tp -> tp * option V;
+        delete : K -> tp -> tp * option V;
         lookup : tp -> K -> option V;
 
         invar : tp -> bool;
@@ -22,14 +22,20 @@ Structure Map (K : eqType) (V : Type) : Type :=
         _ : invar empty;
         _ : lookup empty =1 fun => None;
 
-        _ : forall k f v s, invar s -> invar (update k f v s);
+        _ : forall k f v s, invar s -> invar (update k f v s).1;
         _ : forall k f v s, invar s ->
-            lookup (update k f v s) =1 [eta (lookup s) with k |->
-                                          oapp (Some \o f) (Some v) (lookup s k)];
+            let tv := update k f v s in
+            (lookup tv.1 =1 [eta (lookup s) with k |->
+                              oapp (Some \o f) (Some v) (lookup s k)])
+            *
+            (tv.2 = lookup s k);
 
-        _ : forall k s, invar s -> invar (delete k s);
+        _ : forall k s, invar s -> invar (delete k s).1;
         _ : forall k s, invar s ->
-            lookup (delete k s) =1 [eta (lookup s) with k |-> None]
+            let tv := delete k s in
+            (lookup tv.1 =1 [eta (lookup s) with k |-> None])
+            *
+            (tv.2 = lookup s k)
         }.
 End Map.
 
@@ -66,20 +72,25 @@ Fixpoint find_list (xs : seq (K*V)) (k : K) : option V :=
     end
   else None.
 
-Fixpoint ins_list (k : K) (f : V -> V) (v : V) (xs : seq (K*V)) : seq (K*V) :=
+Fixpoint ins_list (k : K) (f : V -> V) (v : V) (xs : seq (K*V)) : seq (K*V) * option V :=
   if xs is (k0,v0)::xs' then
     match cmp k k0 with
-    | LT => (k,v) :: (k0,v0) :: xs'
-    | EQ => (k,f v0) :: xs'
-    | GT => (k0,v0) :: ins_list k f v xs'
+    | LT => ((k,v) :: (k0,v0) :: xs', None)
+    | EQ => ((k,f v0) :: xs', Some v0)
+    | GT => let '(xs1, ov) := ins_list k f v xs' in
+            ((k0,v0) :: xs1, ov)
     end
-  else [::(k,v)].
+  else ([::(k,v)], None).
 
-Fixpoint del_list (k : K) (xs : seq (K*V)) : seq (K*V) :=
+Fixpoint del_list (k : K) (xs : seq (K*V)) : seq (K*V) * option V :=
   if xs is (k0,v0) :: xs' then
-    if k == k0 then xs'
-      else (k0,v0) :: del_list k xs'
-  else [::].
+    match cmp k k0 with
+    | LT => ((k0,v0) :: xs', None)
+    | EQ => (xs', Some v0)
+    | GT => let '(xs1, ov) := del_list k xs' in
+            ((k0,v0) :: xs1, ov)
+    end
+  else ([::], None).
 
 Definition keys : seq (K*V) -> seq K := map fst.
 Definition values : seq (K*V) -> seq V := map snd.
@@ -114,11 +125,12 @@ Qed.
 
 Lemma inorder_ins_list k f v xs :
   sorted <%O (keys xs) ->
-  perm_eq (keys (ins_list k f v xs))
+  perm_eq (keys (ins_list k f v xs).1)
           (if k \in keys xs then keys xs else k :: keys xs).
 Proof.
 elim: xs=>//=[[k0 v0]] xs IH /= Hp.
-rewrite inE; case: cmpE=>Hk /=.
+case E: (ins_list k f v xs)=>[xs1 ov]; rewrite E /= in IH.
+rewrite inE; case: cmpE=>/= Hk.
 - move/path_sorted: Hp=>/IH; case: ifP=>H; first by rewrite perm_cons.
   by move=>H1; rewrite perm_sym -cat1s -(cat1s k0) perm_catCA /= perm_cons perm_sym.
 - by rewrite Hk.
@@ -128,146 +140,195 @@ Qed.
 
 Lemma inslist_sorted_cat_cons_cat (xs ys : seq (K*V)) k f v k' v' :
   sorted <%O (keys (xs ++ [::(k',v')])) ->
-  ins_list k f v (xs ++ (k',v') :: ys) = if k < k'
-                                           then ins_list k f v xs ++ (k',v') :: ys
-                                           else xs ++ ins_list k f v ((k',v') :: ys).
+  ins_list k f v (xs ++ (k',v') :: ys) =
+    if k < k'
+      then
+        let '(xs1, ov) := ins_list k f v xs in
+        (xs1 ++ (k',v') :: ys, ov)
+      else
+        let '(ys1, ov) := ins_list k f v ((k',v') :: ys) in
+        (xs ++ ys1, ov).
 Proof.
-rewrite /keys; elim: xs=>/=; first by move=>_; case: (cmpE k k').
+rewrite /keys; elim: xs=>/=.
+- move=>_; case: (cmpE k k')=>// Hk.
+  by case: (ins_list k f v ys).
 move=>[k0 v0] /= xs + H; rewrite map_cat /= in H.
 move: (H); move/(order_path_min lt_trans).
 rewrite map_cat all_cat /= andbT =>/andP [Hxs Hya].
 case: (cmpE k k')=>H'.
-- case: (cmpE k k0)=>// H0 -> //.
+- case E: (ins_list k f v (xs ++ (k', v') :: ys))=>[xs1 ov] /=.
+  case E0: (ins_list k f v xs)=>[xs0 ov0] /=.
+  case: (cmpE k k0)=>//= H0.
+  by move/path_sorted: H=>/[swap]/[apply]; case=>->->.
+- case E: (ins_list k' f v (xs ++ (k', v') :: ys))=>[xs1 ov] /=.
+  rewrite {k}H'; case: (cmpE k' k0) Hya=>// Hya _ -> //.
   by apply: (path_sorted H).
-- rewrite {k}H'; case: (cmpE k' k0) Hya=>// Hya _ -> //.
-  by apply: (path_sorted H).
-case: (cmpE k k0) (lt_trans Hya H')=>// H0 _ -> //.
-by apply: (path_sorted H).
+case E: (ins_list k f v (xs ++ (k', v') :: ys))=>[ys1 ov] /=.
+case E0: (ins_list k f v ys)=>[ys0 ov0] /=.
+case: (cmpE k k0) (lt_trans Hya H')=>// H0 _.
+by move/path_sorted: H=>/[swap]/[apply]; case=>->->.
 Qed.
 
 Lemma del_nop k xs :
-  path <%O k (keys xs) -> del_list k xs = xs.
+  path <%O k (keys xs) -> del_list k xs = (xs, None).
 Proof.
 elim: xs=>//= [[k0 v0]] xs IH /= /andP [H1 H2].
-case: ltgtP H1=>// H1 _; rewrite IH //.
-by apply/(path_le lt_trans)/H2.
+by case: cmpE H1.
 Qed.
 
 Lemma inorder_del_list k xs :
   sorted <%O (keys xs) ->
-  perm_eq (keys (del_list k xs))
+  perm_eq (keys (del_list k xs).1)
           (filter (predC1 k) (keys xs)).
 Proof.
-rewrite /keys; elim: xs=>//=[[k0 v0]] xs IH Hp.
+rewrite /keys; elim: xs=>// [[k0 v0]] /= xs IH Hp.
 move/path_sorted: (Hp)=>/IH /= {IH}H.
-case: ifP.
-- move/eqP=>E; move: H; rewrite E /= eqxx /=.
-  by apply/perm_trans; rewrite perm_sym del_nop.
-by move/negbT=>Hx; rewrite eq_sym Hx perm_cons.
+case Ed: (del_list k xs)=>[xs1 ov]; rewrite Ed /= in H.
+case: cmpE=>/=.
+- move=>Hk; rewrite perm_cons.
+  suff : all (predC1 k) (keys xs) by move/all_filterP->.
+  apply (sub_all (a1:=> k)).
+  - by move=>z /=; rewrite lt_neqAle eq_sym; case/andP.
+  by apply/(path_all lt_trans)/(path_le lt_trans)/Hp.
+- move=>E; rewrite -{k0}E in Hp.
+  suff : all (predC1 k) (keys xs) by move/all_filterP->.
+  apply (sub_all (a1:=> k)).
+  - by move=>z /=; rewrite lt_neqAle eq_sym; case/andP.
+  by apply/(path_all lt_trans).
+by move=>Hk; rewrite perm_cons.
 Qed.
 
 Lemma dellist_sorted_cat_cons_cat (xs ys : seq (K*V)) k k' v' :
   sorted <%O (keys (xs ++ (k',v') :: ys)) ->
-  del_list k (xs ++ (k',v') :: ys) = if k < k'
-                                       then del_list k xs ++ (k',v') :: ys
-                                       else xs ++ del_list k ((k',v') :: ys).
+  del_list k (xs ++ (k',v') :: ys) =
+    if k < k'
+      then
+        let '(xs1, ov) := del_list k xs in
+        (xs1 ++ (k',v') :: ys, ov)
+      else
+        let '(ys1, ov) := del_list k ((k',v') :: ys) in
+        (xs ++ ys1, ov).
 Proof.
 rewrite /keys; elim: xs=>/=.
-- move=>H; case: ifP=>[/eqP->|_]; first by rewrite ltxx.
-  case: ifP=>// Hx.
-  by rewrite del_nop //; apply/(path_le lt_trans)/H.
+- move=>H; case: cmpE=>// Hk.
+  by case E: (del_list k ys).
 case=>k0 v0 xs /= + H; rewrite map_cat /= in H.
 move: (H); move/(order_path_min lt_trans).
 rewrite map_cat all_cat /= =>/and3P [Hxs Hya Hys].
-case: ifP=>[Ha|/negbT Ha].
-- case: ifP=>// /negbT Hy.
-  by move=>-> //; apply: (path_sorted H).
-case: ifP.
-- move/eqP=>{Ha}->; case: ifP=>/=.
-  - by move/eqP=>Hay; rewrite Hay ltxx in Hya.
-  by move=>_ ->//; apply: (path_sorted H).
-move/negbT=>Ha'; move: Ha; rewrite lt_neqAle Ha' /= -ltNge=>{Ha'}Hx.
-case: ifP.
-- move/eqP=>He; rewrite He in Hx; move: Hx.
-  by rewrite ltNge le_eqVlt Hya orbT.
-by move/negbT=>_ -> //; apply: (path_sorted H).
-Qed.
-
-Lemma del_list_keys k xs :
-  {subset (keys (del_list k xs)) <= (keys xs)}.
-Proof.
-elim: xs=>//= [[k0 v0]] xs IH.
-case: (eqVneq k k0)=>/= [<-|N] z; rewrite !inE.
-- by move=>->; rewrite orbT.
-by case/orP=>[->|/IH] // ->; rewrite orbT.
+case: (cmpE k k')=>H'.
+- case E: (del_list k (xs ++ (k', v') :: ys))=>[xs1 ov] /=.
+  case E0: (del_list k xs)=>[xs0 ov0] /=.
+  case: (cmpE k k0)=>//= H0.
+  by move/path_sorted: H=>/[swap]/[apply]; case=>->->.
+- case E: (del_list k' (xs ++ (k', v') :: ys))=>[xs1 ov] /=.
+  rewrite {k}H'; case: (cmpE k' k0) Hya=>// Hya _ -> //.
+  by apply: (path_sorted H).
+case E: (del_list k (xs ++ (k', v') :: ys))=>[ys1 ov] /=.
+case E0: (del_list k ys)=>[ys0 ov0] /=.
+case: (cmpE k k0) (lt_trans Hya H')=>// H0 _.
+by move/path_sorted: H=>/[swap]/[apply]; case=>->->.
 Qed.
 
 Definition kvlist xs := sorted <%O (keys xs) && uniq (keys xs).
+
+Lemma del_list_keys k xs :
+  kvlist xs ->
+  subseq (keys (del_list k xs).1) (keys xs).
+Proof.
+rewrite /kvlist; elim: xs=>// [[k0 v0]] /= xs IH.
+case/and3P=>Hp N U.
+case E0: (del_list k xs)=>[xs0 ov0] /=; rewrite E0 /= in IH.
+move/path_sorted: (Hp)=>Hs; rewrite Hs U in IH; move: (IH erefl)=>{}IH.
+case: cmpE=>/= Hk.
+- by rewrite eqxx.
+- rewrite {k0}Hk in Hp N *.
+  case Exs: (keys xs) IH=>[|kx kxs] //; case: eqP=>[E|] //.
+  by move: N; rewrite -E Exs inE eqxx.
+by rewrite eqxx.
+Qed.
 
 Lemma kvlist_empty : kvlist [::].
 Proof. by []. Qed.
 
 Lemma kvlist_ins_list k f v xs :
-  kvlist xs -> kvlist (ins_list k f v xs).
+  kvlist xs -> kvlist (ins_list k f v xs).1.
 Proof.
 rewrite /kvlist; case/andP; elim: xs=>//=[[k0 v0]] xs /= IH Hp /andP [N0 U].
 case: cmpE=>Hk /=; first last.
 - rewrite inE negb_or -!andbA; apply/and6P; split=>//; first by case: ltgtP Hk.
   by apply: (path_notin lt_trans)=>//; apply/(path_le lt_trans)/Hp.
 - by rewrite -Hk Hp N0.
+case E0: (ins_list k f v xs)=>[xs0 ov0] /=; rewrite E0 /= in IH.
 move: Hp; rewrite !(path_sortedE lt_trans) -andbA.
 case/andP=>H1 H2; case/andP: (IH H2 U)=>->-> /=; rewrite andbT.
-have Hi := inorder_ins_list k f v H2.
+have Hi := inorder_ins_list k f v H2; rewrite E0 /= in Hi.
 apply/andP; split.
 - by rewrite (perm_all _ Hi); case: ifP=>//= _; rewrite Hk.
-rewrite (perm_mem (inorder_ins_list _ _ _ H2)); case: ifP=>// _.
+rewrite (perm_mem Hi); case: ifP=>// _.
 rewrite inE negb_or N0 andbT.
 by case: ltgtP Hk.
 Qed.
 
 Lemma find_ins_list k f v xs :
-  find_list (ins_list k f v xs) =1 [eta (find_list xs) with k |->
-                                      oapp (Some \o f) (Some v) (find_list xs k)].
+  let sv := ins_list k f v xs in
+  (find_list sv.1 =1 [eta (find_list xs) with k |->
+                      oapp (Some \o f) (Some v) (find_list xs k)])
+  * (sv.2 = find_list xs k).
 Proof.
-move=>q; elim: xs=>/=; first by case: cmpE.
-case=>k0 v0 xs IH; case: (cmpE k k0)=>Hk /=.
+move; elim: xs=>/=; first by split=>// q /=; case: cmpE.
+case=>k0 v0 xs.
+case E0: (ins_list k f v xs)=>[xs0 ov0] /=.
+case=>IH1 IH2; case: (cmpE k k0)=>Hk /=; split=>// q /=.
 - by case: cmpE=>// Hq; case: cmpE (lt_trans Hq Hk).
 - by rewrite Hk; case: cmpE.
-case: (cmpE q k0)=>//.
-- by move=>Hq; move: (lt_trans Hq Hk); rewrite lt_neqAle; case/andP=>/negbTE->.
-by move=>->; move: Hk; rewrite lt_neqAle; case/andP=>/negbTE->.
+case: (cmpE q k0)=>Hq0.
+- by move: (lt_trans Hq0 Hk); rewrite lt_neqAle; case/andP=>/negbTE->.
+by rewrite Hq0; move: Hk; rewrite lt_neqAle; case/andP=>/negbTE->.
+by apply: IH1.
 Qed.
 
 Lemma kvlist_del_list k xs :
-  kvlist xs -> kvlist (del_list k xs).
+  kvlist xs -> kvlist (del_list k xs).1.
 Proof.
 rewrite /kvlist; case/andP.
-elim: xs=>//=[[k0 v0]] xs IH /= Hp /andP [N0 U].
-move/path_sorted: (Hp)=>H1; case/andP: (IH H1 U)=>H2 {}U1.
-case: ifP=>/= _; first by apply/andP.
-rewrite (path_sortedE lt_trans) -andbA; apply/and4P; split=>//.
-- by apply/(all_subset (@del_list_keys _ xs))/(path_all lt_trans).
-by rewrite (perm_mem (inorder_del_list _ H1)) mem_filter negb_and /= N0 orbT.
+elim: xs=>// [[k0 v0]] xs /=.
+case E0: (del_list k xs)=>[xs0 ov0] /= IH /= Hp /andP [N0 U].
+move/path_sorted: (Hp)=>H1; case/andP: (IH H1 U)=>{IH}H2 {}U1.
+have S: subseq (keys xs0) (keys xs).
+- by move: (@del_list_keys k xs); rewrite E0 /=; apply; apply/andP.
+case: cmpE=>/= Hk; first last.
+- by apply/and3P.
+- by apply/andP.
+apply/and3P; split=>//.
+- by apply/(subseq_path lt_trans)/Hp.
+by apply: contra N0; move/mem_subseq: S; apply.
 Qed.
 
 Lemma find_del_list k xs :
   kvlist xs ->
-  find_list (del_list k xs) =1 [eta find_list xs with k |-> None].
+  let sv := del_list k xs in
+  (find_list sv.1 =1 [eta find_list xs with k |-> None])
+  * (sv.2 = find_list xs k).
 Proof.
-rewrite /kvlist; case/andP=>+ + q.
-elim: xs q=>/=; first by move=>q; rewrite if_same.
-case=>k0 v0 xs IH /= q /[dup] H /path_sorted H' /andP [N0 U].
-case: (eqVneq k k0)=>[E|N] /=.
-- rewrite -{k0}E in H N0 *; case: cmpE=>// [<-|Hq].
-  - by apply: findlist_path.
-  by apply/findlist_path/(path_le lt_trans)/H.
-case: cmpE=>Hk.
-- case: cmpE=>// H0; rewrite IH //.
-  by move: Hk; rewrite lt_neqAle eq_sym; case/andP=>/negbTE->.
-- rewrite -Hk; case: cmpE N=>//= H0 _.
-  by rewrite IH // eqxx.
-case: cmpE=>// H0; rewrite IH //.
-by move: Hk; rewrite lt_neqAle; case/andP=>/negbTE->.
+rewrite /kvlist /=; case/andP.
+elim: xs=>//; first by move=>_ _; split=>// q /=; rewrite if_same.
+case=>k0 v0 xs.
+case E0: (del_list k xs)=>[xs0 ov0] /= IH /= /[dup] H /path_sorted H' /andP [N0 U].
+move: (IH H' U)=>{IH}[IH1 IH2].
+rewrite E0; case: (cmpE k k0)=>/= Hk; split=>// q /=.
+- by case: eqP=>// ->; case: cmpE Hk.
+- rewrite -Hk; case: cmpE=>//.
+  - by move=><-; apply: findlist_path; rewrite Hk.
+  move=>Hq; apply/findlist_path/(path_le lt_trans)/H.
+  by rewrite -Hk.
+move: (IH1 q)=>/= {}IH1.
+case: cmpE=>// Hq.
+- case: cmpE (lt_trans Hk Hq)=>// _ _; rewrite IH1.
+  by move: Hq; rewrite lt_neqAle eq_sym; case/andP=>/negbTE->.
+- rewrite -Hq in IH1 *; case: cmpE Hk=>// _ _.
+  by rewrite IH1 eqxx.
+case: cmpE=>// Hq0; rewrite IH1.
+by move: Hq; rewrite lt_neqAle eq_sym; case/andP=>/negbTE->.
 Qed.
 
 Definition KVLMap :=
@@ -282,10 +343,11 @@ Context {disp : unit} {K : orderType disp} {V : eqType}.
 
 Lemma perm_flatten_values_cons k v (xs : seq (K * seq V)) :
   sorted <%O (keys xs) ->
-  perm_eq (flatten (values (ins_list k (cons v) [::v] xs)))
+  perm_eq (flatten (values (ins_list k (cons v) [::v] xs).1))
           (v :: flatten (values xs)).
 Proof.
-elim: xs=>//=[[k0 v0]] xs IH /= Hp.
+elim: xs=>//=[[k0 v0]] xs.
+case E0: (ins_list k (cons v) [:: v] xs)=>[xs0 ov0] /= IH /= Hp.
 case: cmpE=>Hk //=.
 move/path_sorted: Hp=>/IH H1.
 by rewrite perm_sym -cat1s perm_catCA /= perm_sym (perm_catl _ H1).
@@ -294,13 +356,13 @@ Qed.
 Lemma perm_flatten_lookup_del k (xs : seq (K * seq V)) :
   sorted <%O (keys xs) ->
   perm_eq (flatten (values xs))
-          (odflt [::] (find_list xs k) ++ flatten (values (del_list k xs))).
+          (odflt [::] (find_list xs k) ++ flatten (values (del_list k xs).1)).
 Proof.
-elim: xs=>//=[[k0 v0]] xs IH /= Hp.
+elim: xs=>//=[[k0 v0]] xs.
+case E0: (del_list k xs)=>[xs0 ov0] /= IH /= Hp.
 case: cmpE=>Hk //=.
-- move/path_sorted: Hp=>/IH H1.
-  by rewrite perm_sym perm_catCA /= perm_sym (perm_catl _ H1).
-by rewrite del_nop //; apply/(path_le lt_trans)/Hp.
+move/path_sorted: Hp=>/IH H1.
+by rewrite perm_sym perm_catCA /= perm_sym (perm_catl _ H1).
 Qed.
 
 End KVListEqSeq.
@@ -427,22 +489,26 @@ Fixpoint lookup (t : kvtree K V) (k : K) : option V :=
 Lemma lookup_node t k : lookup t k -> is_node t.
 Proof. by case: t. Qed.
 
-Fixpoint upsert (k : K) (f : V -> V) (v : V) (t : kvtree K V) : kvtree K V :=
+Fixpoint upsert (k : K) (f : V -> V) (v : V) (t : kvtree K V) : kvtree K V * option V :=
   if t is Node l k0 v0 b r
     then match cmp k k0 with
-         | LT => let l' := upsert k f v l in
-                 if incr l l' then balL l' k0 v0 b r else Node l' k0 v0 b r
-         | EQ => Node l k (f v0) b r
-         | GT => let r' := upsert k f v r in
-                 if incr r r' then balR l k0 v0 b r' else Node l k0 v0 b r'
+         | LT => let '(l', ov) := upsert k f v l in
+                 (if incr l l' then balL l' k0 v0 b r else Node l' k0 v0 b r, ov)
+         | EQ => (Node l k (f v0) b r, Some v0)
+         | GT => let '(r', ov) := upsert k f v r in
+                 (if incr r r' then balR l k0 v0 b r' else Node l k0 v0 b r', ov)
          end
-    else Node leaf k v Bal leaf.
+    else (Node leaf k v Bal leaf, None).
 
 Lemma avl_upsert k f v t :
   avl t ->
-  avl (upsert k f v t) && (height (upsert k f v t) == height t + incr t (upsert k f v t)).
+  avl (upsert k f v t).1 &&
+    (height (upsert k f v t).1 == height t + incr t (upsert k f v t).1).
 Proof.
-elim/avl_ind=>//= l k0 v0 b r E Hl Hr /andP [Hal Hhl] /andP [Har Hhr].
+elim/avl_ind=>//= l k0 v0 b r E Hl Hr.
+case El: (upsert k f v l)=>[l0 ovl] /=.
+case Er: (upsert k f v r)=>[r0 ovr] /=.
+move=>/andP [Hal Hhl] /andP [Har Hhr].
 case: (cmp k k0)=>/=.
 - (* k < k0 *)
   case: ifP=>/= Hi; last first.
@@ -452,7 +518,7 @@ case: (cmp k k0)=>/=.
   rewrite Hi /= in Hhl.
   case: b E=>/eqP E /=.
   - (* b = Lh *)
-    case E': (upsert k f v l) Hi => [|li ki vi bi ri]/=.
+    case E': l0 Hi => [|li ki vi bi ri]/=.
     - (* insert = Leaf, impossible *)
       by rewrite E' addn1 in Hhl.
     (* insert = Node *)
@@ -461,7 +527,7 @@ case: (cmp k k0)=>/=.
       case/and3P=>/eqP->->->/=.
       by rewrite maxn_addl !eqn_add2r=>/eqP<-; rewrite !maxnn Hr !eqxx.
     - (* bi = Bal *)
-      case: {Hl}l E; rewrite /incr /=; first by rewrite addn1.
+      case: {El Hl}l E; rewrite /incr /=; first by rewrite addn1.
       by move=>????; rewrite andbF.
     (* bi = Rh *)
     case/and3P; case: ri=>/=; first by rewrite addn1; move/eqP.
@@ -491,7 +557,7 @@ move=>Hi; case: b E=>/eqP E /=.
 - (* b = Bal *)
   by rewrite Har Hl; move/eqP: Hhr=>->; rewrite Hi E maxnn maxn_addr !eq_refl.
 (* b = Rh *)
-case E': (upsert k f v r)=> [|li ki vi bi ri]/=.
+case E': r0=> [|li ki vi bi ri]/=.
 - (* insert = Leaf, impossible *)
   move: Hhr; rewrite E' /=; case: (incr _ _)=>/= /eqP; first by rewrite addn1.
   by rewrite addn0 E addn1.
@@ -510,7 +576,7 @@ rewrite maxn_addr addn0; case: bi=>/=.
   rewrite maxn_addl maxn_addr -!addn_maxl !eqn_add2r=>/eqP<-.
   by rewrite maxn_addl !maxnn Hl !eq_refl.
 - (* bi = Bal, impossible *)
-  case: {Hr}r E; rewrite /incr /=; first by rewrite addn1.
+  case: {Er Hr}r E; rewrite /incr /=; first by rewrite addn1.
   by move=>????; rewrite andbF.
 (* bi = Rh *)
 move=>->; case/and3P=>/eqP->->->/=.
@@ -527,20 +593,20 @@ Fixpoint split_max (l : kvtree K V) (k : K) (v : V) (ba : bal) (r : kvtree K V) 
          (t', k', v')
     else (l, k, v).
 
-Fixpoint delete (k : K) (t : kvtree K V) : kvtree K V :=
+Fixpoint delete (k : K) (t : kvtree K V) : kvtree K V * option V :=
   if t is Node l k0 v0 ba r
     then match cmp k k0 with
-         | LT => let l' := delete k l in
-                 if decr l l' then balR l' k0 v0 ba r else Node l' k0 v0 ba r
-         | EQ => if l is Node ll kl vl bl rl then
+         | LT => let '(l',ov) := delete k l in
+                 (if decr l l' then balR l' k0 v0 ba r else Node l' k0 v0 ba r, ov)
+         | EQ => (if l is Node ll kl vl bl rl then
                    let: (l', k', v') := split_max ll kl vl bl rl in
                    if decr l l' then balR l' k' v' ba r
                                 else Node l' k' v' ba r
-                   else r
-         | GT => let r' := delete k r in
-                 if decr r r' then balL l k0 v0 ba r' else Node l k0 v0 ba r'
+                   else r, Some v0)
+         | GT => let '(r',ov) := delete k r in
+                 (if decr r r' then balL l k0 v0 ba r' else Node l k0 v0 ba r', ov)
          end
-    else leaf.
+    else (leaf, None).
 
 Lemma avl_balL_decr (l : kvtree K V) k v b r t :
   avl l -> avl r -> bal_inv (height l) b (height r + 1) ->
@@ -604,9 +670,13 @@ Qed.
 
 Lemma avl_delete k t :
   avl t ->
-  avl (delete k t) && (height t == height (delete k t) + decr t (delete k t)).
+  avl (delete k t).1 &&
+    (height t == height (delete k t).1 + decr t (delete k t).1).
 Proof.
-elim/avl_ind=>//=l k0 v0 b r E Hl Hr /andP [Hal Hhl] /andP [Har Hhr].
+elim/avl_ind=>//=l k0 v0 b r E Hl Hr.
+case El: (delete k l)=>[l0 ovl] /=.
+case Er: (delete k r)=>[r0 ovr] /=.
+move=>/andP [Hal Hhl] /andP [Har Hhr].
 case: (cmp k k0)=>/=.
 - (* k < k0 *)
   case: ifP=>/=; last first.
@@ -621,7 +691,7 @@ case: (cmp k k0)=>/=.
     rewrite Hal Hr; move: Hhl; rewrite (eqP E) maxnn =>/eqP->.
     by rewrite maxn_addr addn0 !eq_refl.
   (* b = Rh *)
-  case: {Har Hhr}r Hr E=>/=; first by rewrite addn1.
+  case: {Er Har Hhr}r Hr E=>/=; first by rewrite addn1.
   move=>lr kr vr br rr /=; case/and3P; case: br=>/=.
   - case: lr=>/=; first by rewrite addn1=>/eqP.
     move=>llr klr vlr blr rlr /=; rewrite eqn_add2r=>Hrr; case: blr=>/=.
@@ -639,12 +709,12 @@ case: (cmp k k0)=>/=.
   move/eqP=>-> Halr Harr; rewrite (eqP Hhl) maxn_addr !eqn_add2r =>/eqP <-.
   by rewrite !maxnn maxn_addr !eq_refl Hal Halr Harr.
 - (* k == k0 *)
-  case: {Hal Hhl} l Hl E=>/=.
+  case: {El Hal Hhl} l Hl E=>/=.
   - move=>_; case: b=>/=; rewrite /decr /=.
     - by rewrite addn1 => /eqP.
     - by move/heightE=>->.
     rewrite add0n max0n Hr => H /=; rewrite eqn_add2l.
-    case: {Har Hhr}r Hr H=>//=lr kr vr br rr /=.
+    case: {Er Har Hhr}r Hr H=>//=lr kr vr br rr /=.
     rewrite -{2}(add0n 1%N) eqn_add2r; case: br=>//=; case/and3P=>/eqP=>->_ _.
     - by rewrite maxn_addl addn1=>/eqP.
     by rewrite maxn_addr addn1=>/eqP.
@@ -654,7 +724,7 @@ case: (cmp k k0)=>/=.
   - rewrite eqn_add2r => /eqP E'; move: Hbl; rewrite E'; case: b=>/=.
     - by rewrite eqn_add2r=>/eqP->; rewrite maxn_addl maxnn !eq_refl Hal' Hr.
     - by move/eqP=>->; rewrite maxn_addr maxnn addn0 !eq_refl Hal' Hr.
-    case: {Har Hhr}r Hr=>/=; first by rewrite addn1=>/eqP.
+    case: {Er Har Hhr}r Hr=>/=; first by rewrite addn1=>/eqP.
     move=>lr kr vr br rr; rewrite eqn_add2r=>/and3P [H'' Halr Harr] E''.
     case: br H'' =>/=.
     - case: lr Halr E''=>/=; first by move=>_ _; rewrite addn1=>/eqP.
@@ -680,7 +750,7 @@ case: ifP=>/=; last first.
 (* decr l delete *)
 move=>Hi; rewrite Hi /= in Hhr; case: b E=>E /=.
 - (* b = Lh *)
-  case: {Hal Hhl}l Hl E=>/=; first by rewrite addn1.
+  case: {El Hal Hhl}l Hl E=>/=; first by rewrite addn1.
   move=>ll kl vl bl rl /=; case/and3P; case: bl=>/=.
   - move/eqP=>-> Hall Harl; rewrite (eqP Hhr) maxn_addl !eqn_add2r =>/eqP <-.
     by rewrite !maxnn maxn_addl !eq_refl Har Hall Harl.
@@ -758,17 +828,26 @@ Qed.
 
 Theorem inorder_upsert k f v t :
   kv_inorder t ->
-  inorder_kv (upsert k f v t) = ins_list k f v (inorder_kv t).
+  (inorder_kv (upsert k f v t).1 = (ins_list k f v (inorder_kv t)).1)
+  * ((upsert k f v t).2 = (ins_list k f v (inorder_kv t)).2).
 Proof.
-rewrite /kv_inorder /kvlist /keys; elim: t=>//=l IHl k0 v0 b r IHr.
+rewrite /kv_inorder /kvlist /keys; elim: t=>//= l IHl k0 v0 b r IHr.
+case El: (upsert k f v l)=>[l0 ovl] /=; rewrite El /= in IHl.
+case Er: (upsert k f v r)=>[r0 ovr] /=; rewrite Er /= in IHr.
 rewrite !map_cat /= sorted_cat_cons_cat -andbA => /and3P [H1 H2]; rewrite -cat1s in H2.
 rewrite cat_uniq /= =>/and4P [U1 _ _ U2].
+rewrite (cat_sorted2 H1) U1 /= in IHl.
+case: IHl=>//=>IHl1 IHl2.
+rewrite (cat_sorted2 H2) U2 /= in IHr.
+case: IHr=>//=>IHr1 IHr2.
 rewrite inslist_sorted_cat_cons_cat /keys; last by rewrite map_cat.
 case: cmpE=>Hx /=.
 - case: cmpE Hx=>// _ _.
-  by case: ifP=>/=_; rewrite ?inorder_balR /= IHr // (cat_sorted2 H2).
+  case Er1: (ins_list k f v (inorder_kv r))=>[r1 ovr1] /=.
+  by case: ifP=>/=_; rewrite ?inorder_balR /= IHr1 IHr2 Er1.
 - by rewrite Hx cmpxx /=.
-by case: ifP=>/=_; rewrite ?inorder_balL /= IHl // (cat_sorted2 H1).
+case El1: (ins_list k f v (inorder_kv l))=>[l1 ovl1] /=.
+by case: ifP=>/=_; rewrite ?inorder_balL /= IHl1 IHl2 El1.
 Qed.
 
 Lemma inorder_split_max (l : kvtree K V) k v b r t k' v' :
@@ -782,21 +861,29 @@ Qed.
 
 Theorem inorder_delete k t :
   kv_inorder t ->
-  inorder_kv (delete k t) = del_list k (inorder_kv t).
+  (inorder_kv (delete k t).1 = (del_list k (inorder_kv t)).1)
+  * ((delete k t).2 = (del_list k (inorder_kv t)).2).
 Proof.
 rewrite /kv_inorder /kvlist /keys /=; elim: t=>//=l IHl k0 v0 c r IHr /andP [] /[dup] H.
-rewrite map_cat /= sorted_cat_cons_cat=>/andP [H1 H2].
+case El: (delete k l)=>[l0 ovl] /=; rewrite El /= in IHl.
+case Er: (delete k r)=>[r0 ovr] /=; rewrite Er /= in IHr.
+rewrite map_cat /= sorted_cat_cons_cat -(cat1s _ (map _ _)) =>/andP [H1 H2].
 rewrite cat_uniq /= =>/and4P [U1 _ _ U2].
-rewrite dellist_sorted_cat_cons_cat //.
+rewrite (cat_sorted2 H1) U1 /= in IHl.
+case: IHl=>//=>IHl1 IHl2.
+rewrite (cat_sorted2 H2) U2 /= in IHr.
+case: IHr=>//=>IHr1 IHr2.
+rewrite dellist_sorted_cat_cons_cat //=.
 case: cmpE=>Hxa /=.
-- case: ltgtP Hxa=>//_ _; rewrite -cat1s in H2.
-  by case: ifP=>/=_; rewrite ?inorder_balL IHr // (cat_sorted2 H2).
-- rewrite Hxa eqxx.
-  case: {H H1 U1 IHl}l=>//= ll kl vl bl rl.
+- rewrite -cat1s in H2.
+  case Er1: (del_list k (inorder_kv r))=>[r1 ovr1] /=.
+  by case: ifP=>/=_; rewrite ?inorder_balL IHr1 IHr2 Er1.
+- case: {H H1 U1 IHl1 IHl2 El}l=>//= ll kl vl bl rl.
   case Hsm: (split_max ll kl vl bl rl)=>[[a' rk'] rv'] /=.
   move: (inorder_split_max Hsm)=>/= Esm.
   by case: ifP=>/=_; rewrite ?inorder_balR -Esm -catA.
-by case: ifP=>/=_; rewrite ?inorder_balR IHl // (cat_sorted2 H1).
+case El1: (del_list k (inorder_kv l))=>[l1 ovl1] /=.
+by case: ifP=>/=_; rewrite ?inorder_balR IHl1 IHl2 El1.
 Qed.
 
 Definition invariant (t : kvtree K V) := kv_inorder t && avl t.
@@ -808,40 +895,58 @@ Theorem lookup_empty : lookup leaf =1 fun => None.
 Proof. by []. Qed.
 
 Corollary invariant_upsert k f v t :
-  invariant t -> invariant (upsert k f v t).
+  invariant t -> invariant (upsert k f v t).1.
 Proof.
 rewrite /invariant /kv_inorder /kvlist => /andP [H1 H2].
-rewrite inorder_upsert //.
+case: (inorder_upsert k f v H1)=>-> _.
 apply/andP; split; last by case/andP: (avl_upsert k f v H2).
 by apply: kvlist_ins_list.
 Qed.
 
 Corollary lookup_upsert k f v t :
   invariant t ->
-  lookup (upsert k f v t) =1 [eta (lookup t) with k |->
-                                oapp (Some \o f) (Some v) (lookup t k)].
+  let tv := upsert k f v t in
+  (lookup tv.1 =1 [eta (lookup t) with k |->
+                   oapp (Some \o f) (Some v) (lookup t k)])
+  * (tv.2 = lookup t k).
 Proof.
 move/[dup] => H; rewrite /invariant /kvlist => /andP [H1 _].
-move=>x /=; rewrite inorder_lookup; last by case/(invariant_upsert k f v)/andP: H.
-by rewrite inorder_upsert // find_ins_list !inorder_lookup.
+case E: (upsert k f v t)=>[t0 ov] /=.
+move: E; rewrite (surjective_pairing (upsert _ _ _ _)); case=>E1 E2.
+case: (find_ins_list k f v (inorder_kv t))=>L1 L2.
+case: (inorder_upsert k f v H1)=>I1 I2.
+split.
+- move=>q /=; rewrite -E1 !inorder_lookup //; last first.
+  - by case/(invariant_upsert k f v)/andP: H.
+  by rewrite I1 (L1 q) //= -I2 E2.
+by rewrite -E2 I2 inorder_lookup.
 Qed.
 
 Corollary invariant_delete k t :
-  invariant t -> invariant (delete k t).
+  invariant t -> invariant (delete k t).1.
 Proof.
 rewrite /invariant /kv_inorder /kvlist => /andP [H1 H2].
-rewrite inorder_delete //.
+case: (inorder_delete k H1)=>-> _.
 apply/andP; split; last by case/andP: (avl_delete k H2).
 by apply: kvlist_del_list.
 Qed.
 
 Corollary lookup_delete k t :
   invariant t ->
-  lookup (delete k t) =1 [eta (lookup t) with k |-> None].
+  let tv := delete k t in
+  (lookup tv.1 =1 [eta (lookup t) with k |-> None])
+  * (tv.2 = lookup t k).
 Proof.
 move/[dup] => H; rewrite /invariant /kv_inorder /kvlist => /andP [H1 H2].
-move=>x /=; rewrite inorder_lookup; last by case/(invariant_delete k)/andP: H.
-by rewrite inorder_delete // find_del_list // inorder_lookup.
+case E: (delete k t)=>[t0 ov] /=.
+move: E; rewrite (surjective_pairing (delete _ _)); case=>E1 E2.
+case: (find_del_list k (xs:=inorder_kv t))=>// L1 L2.
+case: (inorder_delete k H1)=>I1 I2.
+split.
+- move=>x /=; rewrite -E1 !inorder_lookup //; last first.
+  - by case/(invariant_delete k)/andP: H.
+  by rewrite I1 (L1 x) //= -I2 E2.
+by rewrite -E2 I2 inorder_lookup.
 Qed.
 
 Definition AVLMap :=
@@ -865,14 +970,20 @@ Qed.
 Lemma upsert_const t k f v :
   (forall x, f x = v) ->
   lookup t k = Some v ->
-  upsert k f v t = t.
+  (upsert k f v t).1 = t.
 Proof.
 move=>H; elim: t=>//= l1 IHl k1 v1 b1 r1 IHr.
+case El: (upsert k f v l1)=>[l0 ovl] /=.
+case Er: (upsert k f v r1)=>[r0 ovr] /=.
 case: cmpE=>H1.
-- move=>L; rewrite (IHr L) incr_refl (@lookup_node _ k) //.
+- move=>L; move: Er.
+  rewrite (surjective_pairing (upsert _ _ _ _)); case=>Er1 _; rewrite Er1 in IHr.
+  rewrite (IHr L) incr_refl (@lookup_node _ k) //.
   by apply/optP; exists v.
 - by case=>->; rewrite H1 H.
-move=>L; rewrite (IHl L) incr_refl (@lookup_node _ k) //.
+move=>L; move: El.
+rewrite (surjective_pairing (upsert _ _ _ _)); case=>El1 _; rewrite El1 in IHl.
+rewrite (IHl L) incr_refl (@lookup_node _ k) //.
 by apply/optP; exists v.
 Qed.
 
@@ -918,18 +1029,18 @@ Proof. by []. Qed.
 
 Lemma regular_del k t :
   invariant t -> regular t ->
-  regular (delete k t).
+  regular (delete k t).1.
 Proof.
 rewrite /regular=>H R l.
-by rewrite lookup_delete // /=; case: eqP.
+by rewrite lookup_delete //=; case: eqP.
 Qed.
 
 Lemma regular_ins k v t :
   invariant t -> regular t ->
-  regular (upsert k (cons v) [::v] t).
+  regular (upsert k (cons v) [::v] t).1.
 Proof.
 rewrite /regular=>H R l.
-rewrite lookup_upsert=>//=; case: eqP=>//= {l}_.
+rewrite lookup_upsert //=; case: eqP=>//= {l}_.
 by case: (lookup t k).
 Qed.
 

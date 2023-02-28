@@ -56,7 +56,7 @@ Qed.
 Lemma nsound_shift_work_ai i b work ds ni ai a ctx :
   invariant ai ->
   nsound (AImp i b :: work) ds ni ai a ctx ->
-  nsound work ds ni (update_aimps b i ai) a ctx.
+  nsound work ds ni (update_aimps b i ai).1 a ctx.
 Proof.
 rewrite /nsound =>Ha S c I.
 by apply/S/in_ngamma_shift_ai_work.
@@ -65,7 +65,7 @@ Qed.
 Lemma nsound_shift_work_a i work ds ni ai a ctx :
   invariant a ->
   nsound (NAtom i :: work) ds ni ai a ctx ->
-  nsound work ds ni ai (update_atoms i a) ctx.
+  nsound work ds ni ai (update_atoms i a).1 ctx.
 Proof.
 rewrite /nsound =>Ha S c I.
 by apply/S/in_ngamma_shift_a_work.
@@ -109,7 +109,8 @@ Qed.
 
 Remark nsound_del_ai i work ds ni ai a ctx :
   invariant ai ->
-  nsound work ds ni ai a ctx -> nsound work ds ni (delete i ai) a ctx.
+  nsound work ds ni ai a ctx ->
+  nsound work ds ni (delete i ai).1 a ctx.
 Proof.
 rewrite /nsound =>Ha S c I.
 by apply/S/(in_ngamma_del_ai_tail _ _ _ i).
@@ -143,8 +144,8 @@ Qed.
 Lemma nsound_shift_work_ai_strength i bs work ds ni ai a ctx :
   invariant ai -> invariant a ->
   lookup ai i = Some bs ->
-  nsound work ds ni ai (update_atoms i a) ctx ->
-  nsound (bs ++ work) ds ni (delete i ai) (update_atoms i a) ctx.
+  nsound work ds ni ai (update_atoms i a).1 ctx ->
+  nsound (bs ++ work) ds ni (delete i ai).1 (update_atoms i a).1 ctx.
 Proof.
 move=>Hai Ha L S.
 apply/nsound_cat_work=>[n b E|].
