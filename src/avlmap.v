@@ -1053,7 +1053,8 @@ Set Extraction Flag 522.
 Extract Inlined Constant negb => "not".
 Extract Inlined Constant idP => "".
 Extract Inlined Constant eqn => "equal".  (* ints! *)
-Extract Inlined Constant size => "length".
+Extract Inlined Constant size => "List.length".
+Extract Inlined Constant cat => "List.append".
 Extract Inductive reflect => bool [ true false ].
 Extract Inductive alt_spec => bool [ true false ].
 Extract Inductive eq_xor_neq => bool [ true false ].

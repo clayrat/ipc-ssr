@@ -6,7 +6,7 @@ Section Minimal.
 Context {disp : unit} {A : orderType disp}.
 
 Definition minimal (gamma : seq (form A)) (work : seq (normal_form A))
-                   (ctx : seq (form A)) :=
+                   (ctx : seq (form A)) : Prop :=
   forall k, Is_Monotone_kripke_tree k ->
   forces_gamma gamma work k -> {in ctx, forall a, forces_t k a}.
 

@@ -50,7 +50,7 @@ rewrite ltnS; elim: work ds ni ai a.
       by apply: le_ni_app_dn=>//; apply: le_ni_refl.
     apply: shift_ni_dni; apply: IHl=>//.
     by apply: lt_ks_shift_dd.
-  (* ds=(i,j)::ds) *)
+  (* ds = (i,j)::ds *)
   apply: left_disj=>ni0 L0; apply: IHn=>//.
   - rewrite -(@nweight_sequent_left_disj_left _ _ _ j _ _ ni) //.
     by apply: le_eqv.
@@ -127,18 +127,3 @@ by case: ni1 Ln=>//=; case.
 Qed.
 
 End NSearch.
-
-From Coq Require Extraction ExtrOcamlBasic ExtrOcamlNatInt.
-
-Set Extraction Flag 522.
-Extract Inlined Constant negb => "not".
-Extract Inlined Constant idP => "".
-Extract Inlined Constant eqn => "equal".  (* ints! *)
-Extract Inlined Constant size => "length".
-Extract Inductive reflect => bool [ true false ].
-Extract Inductive alt_spec => bool [ true false ].
-Extract Inductive eq_xor_neq => bool [ true false ].
-Extract Inductive leq_xor_gtn => bool [ true false ].
-Extract Inductive ltn_xor_geq => bool [ true false ].
-
-Extraction "ext.ml" nsearch.

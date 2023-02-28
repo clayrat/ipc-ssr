@@ -11,14 +11,11 @@ Variant nsearch_spec_result_aux (goal : A) (work : seq (normal_form A))
                                 (ds : seq (disj A)) (ni : seq (nested_imp A))
                                 (ai : atomic_imps A) (a : atoms A)
                                 (ctx : seq (form A)) : Type :=
-  | NDerivable :
-      Derivable ctx (Atom goal) ->
-      nsearch_spec_result_aux goal work ds ni ai a ctx
-  | NRefutable k :
-      Is_Monotone_kripke_tree k ->
-      forces_ngamma work ds ni ai a k ->
-      ~ forces_t k (Atom goal) ->
-      nsearch_spec_result_aux goal work ds ni ai a ctx.
+  | NDerivable of Derivable ctx (Atom goal)
+  | NRefutable k of
+      Is_Monotone_kripke_tree k &
+      forces_ngamma work ds ni ai a k &
+      ~ forces_t k (Atom goal).
 
 Variant nsearch_spec_result goal work ds ni ai a ctx : Type :=
   NSearch_Res :

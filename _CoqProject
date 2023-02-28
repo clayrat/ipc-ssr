@@ -23,10 +23,11 @@ src/derivable_def_prop.v
 src/derivable_def_type.v
 src/derivable_def.v
 src/derivable_tools.v
-src/minimal.v
 src/nminimal.v
-src/sound.v
 src/nsound.v
 src/nweight.v
 src/nrules.v
 src/nsearch.v
+src/minimal.v
+src/sound.v
+src/rules.v
