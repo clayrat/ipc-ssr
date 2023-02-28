@@ -1,7 +1,7 @@
 From mathcomp Require Import ssreflect ssrbool ssrfun.
 From mathcomp Require Import ssrnat seq eqtype order.
 From ipcssr Require Import prelude avlmap forms normal_forms kripke_trees in_ngamma
-                           catrev disjunct
+                           catrev disjunct forces_ngamma derivable_def ndeco_sound nsound nminimal
                            le_ks lt_ks nweight nrules.
 
 Section NSearch.
@@ -108,67 +108,23 @@ apply/rule_shift_work_ni0/IHw=>//.
 by rewrite -nweight_shift_work_ni0.
 Qed.
 
-(*
-Theorem nsearch :
- forall (goal : Int) (work : nf_list) (ctx : flist),
- (forall (n : nat) (a : normal_form),
-  my_nth normal_form n work a -> Derivable ctx (nf2form a)) ->
- (forall (a : form) (k : kripke_tree),
-  Is_Monotone_kripke_tree k ->
-  (forall b : normal_form, In b work -> forces_t k (nf2form b)) ->
-  In a ctx -> forces_t k a) ->rewrite -H';
- nsearch_spec_result_aux goal work DNil NNil AI_Nil ANil ctx.
-intros goal work ctx sound minimal.
-elim
- (nsearch_aux (S (nweight_Sequent work DNil NNil AI_Nil)) goal work DNil NNil
-    AI_Nil ANil ctx).
-intros ni1 le1.
-cut (ni1 = NNil).
-intros claim.
- rewrite claim.
-intros; assumption.
-inversion_clear le1.
-trivial.
-apply Nat.lt_succ_diag_r.
-
-unfold AI_Nil in |- *.
-unfold nf_list in |- *.
-apply regular_AVL_NIL.
-
-unfold a_a.i_disj in |- *.
-intros i lookup_i bs lookup_bs.
-inversion_clear lookup_i.
-
-unfold a_goal_disj in |- *.
-intros lookup_goal.
-inversion_clear lookup_goal.
-
-unfold deco_sound in |- *.
-intros k i0 i1 b in_k.
-inversion_clear in_k.
-
-unfold nsound in |- *.
-intros a in_ngamma.
-elim in_ngamma; clear in_ngamma a.
-
-intros n a nth.
-apply sound with n; assumption.
-
-intros n i j nth; elimtype False; inversion_clear nth.
-intros n x nth; elimtype False; inversion_clear nth.
-intros i b n bs lookup_i nth; elimtype False; inversion_clear lookup_i.
-intros i lookup; elimtype False; inversion_clear lookup.
-
-unfold nminimal in |- *.
-intros a k k_is_mon k_forces_gamma in_a.
-apply minimal; try assumption.
-intros b in_b.
-elim (in_nth normal_form b work in_b).
-intros n nth.
-apply k_forces_gamma.
-apply In_Work with n; assumption.
+Theorem nsearch (goal : A) work ctx :
+  (forall n a, onth work n = Some a -> Derivable ctx (nf2form a)) ->
+  (forall k, Is_Monotone_kripke_tree k ->
+    {in work, forall b, forces_t k (nf2form b)} ->
+    {in ctx, forall a, forces_t k a}) ->
+  nsearch_spec_result_aux goal work [::] [::] leaf leaf ctx.
+Proof.
+move=>S M.
+case: (nsearch_aux (nweight_Sequent work [::] [::] leaf).+1 goal work [::] [::] leaf leaf ctx)=>//.
+- by rewrite /nsound=>a; case.
+- rewrite /nminimal=>k Mk Fk.
+  apply: M=>// b /onth_index Hb.
+  by apply/Fk/In_Work/Hb.
+move=>ni1 Ln.
+suff ->: ni1 = [::] by [].
+by case: ni1 Ln=>//=; case.
 Qed.
-*)
 
 End NSearch.
 
@@ -185,4 +141,4 @@ Extract Inductive eq_xor_neq => bool [ true false ].
 Extract Inductive leq_xor_gtn => bool [ true false ].
 Extract Inductive ltn_xor_geq => bool [ true false ].
 
-Extraction "ext.ml" nsearch_aux.
+Extraction "ext.ml" nsearch.
