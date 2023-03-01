@@ -160,7 +160,7 @@ apply/ImpIntro/ImpIntro/ImpElim.
 by apply: AndFIntro; apply: ByAssumption.
 Qed.
 
-Lemma derivable_a_or_b_imp_c__derivable_a_imp_b ctx (a b c : form A) :
+Lemma derivable_a_or_b_imp_c__derivable_a_imp_c ctx (a b c : form A) :
   Derivable ctx (Imp (OrF a b) c) -> Derivable ctx (Imp a c).
 Proof.
 case=>t Dt.

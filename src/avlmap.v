@@ -1061,5 +1061,7 @@ Extract Inductive eq_xor_neq => bool [ true false ].
 Extract Inductive leq_xor_gtn => bool [ true false ].
 Extract Inductive ltn_xor_geq => bool [ true false ].
 
+Extract Inductive Derivable2 => "( * )" [ "" ].
+
 Extraction "ext.ml" lookup upsert delete foldr_v.
 *)
