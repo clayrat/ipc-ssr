@@ -203,7 +203,7 @@ by rewrite IHf /= H.
 Qed.
 
 Definition max_int_of_list (l : seq (form nat)) : nat :=
-  foldr (fun s => maxn (max_int_of_form s)) 0 l.
+  foldr (maxn \o max_int_of_form) 0 l.
 
 Lemma max_int_of_list_below (g : seq (form nat)) : below_list g (max_int_of_list g).
 Proof.

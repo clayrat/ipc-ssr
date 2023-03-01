@@ -5,7 +5,7 @@ From ipcssr Require Import forms derivations.
 (*******************************************************************)
 
 Variant Derivable {A} (ctx : seq (form A)) (a : form A) : Prop :=
-  Derivable_Intro t : derives ctx t a -> Derivable ctx a.
+  Derivable_Intro t of derives ctx t a.
 
 Variant Derivable2 {A} (ctx : seq (form A)) (a b : form A) : Prop :=
-  Derivable2_Intro : Derivable ctx a -> Derivable ctx b -> Derivable2 ctx a b.
+  Derivable2_Intro of Derivable ctx a & Derivable ctx b.

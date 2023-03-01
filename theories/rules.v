@@ -11,7 +11,7 @@ Open Scope order_scope.
 Section Rules.
 Context {disp : unit} {A : orderType disp}.
 
-Variant search_spec_aux (goal : form A) (gamma : seq (form A))
+Variant csearch_spec_aux (goal : form A) (gamma : seq (form A))
                         (work : seq (normal_form A)) (ctx : seq (form A)) : Type :=
   | derivable of Derivable ctx goal
   | refutable k of
@@ -19,22 +19,22 @@ Variant search_spec_aux (goal : form A) (gamma : seq (form A))
       forces_gamma gamma work k &
       ~forces_t k goal.
 
-Definition search_spec (goal : form A) (gamma : seq (form A))
+Definition csearch_spec (goal : form A) (gamma : seq (form A))
                        (work : seq (normal_form A)) (ctx : seq (form A)) (i : A) : Type :=
   below_form goal i ->
   below_list gamma i ->
   below_list ctx i ->
   sound gamma work ctx ->
   minimal gamma work ctx ->
-  search_spec_aux goal gamma work ctx.
+  csearch_spec_aux goal gamma work ctx.
 
 (**********************************************************************)
 
 Lemma rule_shift_gamma_work goal l a gamma work ctx j :
-  search_spec goal gamma (nvimp l a :: work) ctx j ->
-  search_spec goal (vimp l (nf2form a) :: gamma) work ctx j.
+  csearch_spec goal gamma (nvimp l a :: work) ctx j ->
+  csearch_spec goal (vimp l (nf2form a) :: gamma) work ctx j.
 Proof.
-rewrite (vimp_eq_nvimp l a) /search_spec=>/= + Hg0 /andP [Hb Hg] Hc S M.
+rewrite (vimp_eq_nvimp l a) /csearch_spec=>/= + Hg0 /andP [Hb Hg] Hc S M.
 case=>//.
 - by apply: sound_shift_gamma_work.
 - by apply: minimal_shift_gamma_work.
@@ -46,16 +46,16 @@ Qed.
 
 (*********************************************************************)
 
-Lemma search_spec_subst_gamma_pos goal gamma work ctx j j1 a b c :
+Lemma csearch_spec_subst_gamma_pos goal gamma work ctx j j1 a b c :
   j < j1 ->
   (below_form c j -> [/\ below_form a j, below_form b j1 & subst_form j a b = c]) ->
   (forall k, Is_Monotone_kripke_tree k ->
    forces_t k b -> forces_t k (Imp (Atom j) a) -> forces_t k c) ->
-  search_spec goal (b :: Imp (Atom j) a :: gamma) work
+  csearch_spec goal (b :: Imp (Atom j) a :: gamma) work
     (b :: Imp (Atom j) a :: ctx) j1 ->
-  search_spec goal (c :: gamma) work ctx j.
+  csearch_spec goal (c :: gamma) work ctx j.
 Proof.
-rewrite /search_spec=>/= L1 Bx F0 S0 Hg0 /andP [Hj Hg] Hc S M.
+rewrite /csearch_spec=>/= L1 Bx F0 S0 Hg0 /andP [Hj Hg] Hc S M.
 case: (Bx Hj)=>{Bx}Ba Bb Ec.
 case: S0.
 - by move: Hg0; apply/implyP/less_below_form_imply.
@@ -91,12 +91,12 @@ Qed.
 
 Lemma rule_vimp_a_gamma goal l a gamma work ctx j j1 :
   j < j1 ->
-  search_spec goal (vimp [::j] a :: gamma) (nvimp l (NAtom j) :: work)
+  csearch_spec goal (vimp [::j] a :: gamma) (nvimp l (NAtom j) :: work)
                    [:: vimp l (Atom j), Imp (Atom j) a & ctx] j1 ->
-  search_spec goal (vimp l a :: gamma) work ctx j.
+  csearch_spec goal (vimp l a :: gamma) work ctx j.
 Proof.
 move=>/= L1 S0.
-apply: (search_spec_subst_gamma_pos _ _ _ _ _ j1 a (vimp l (Atom j)))=>//.
+apply: (csearch_spec_subst_gamma_pos _ _ _ _ _ j1 a (vimp l (Atom j)))=>//.
 - move=>Bj.
   have H1 := below_vimp_tail _ _ _  Bj.
   move/implyP: (below_vimp_head j l a)=>/(_ Bj) {}Bj.
@@ -112,12 +112,12 @@ Qed.
 
 Lemma rule_vimp_imp_gamma goal l a b gamma work ctx j j1 :
   j < j1 ->
-  search_spec goal [:: vimp l (Imp a (Atom j)), vimp [::j] b & gamma] work
+  csearch_spec goal [:: vimp l (Imp a (Atom j)), vimp [::j] b & gamma] work
                    [:: vimp l (Imp a (Atom j)), Imp (Atom j) b & ctx] j1 ->
-  search_spec goal (vimp l (Imp a b) :: gamma) work ctx j.
+  csearch_spec goal (vimp l (Imp a b) :: gamma) work ctx j.
 Proof.
 move=>/= L1 S0.
-apply: (search_spec_subst_gamma_pos _ _ _ _ _ j1 b (vimp l (Imp a (Atom j))))=>//.
+apply: (csearch_spec_subst_gamma_pos _ _ _ _ _ j1 b (vimp l (Imp a (Atom j))))=>//.
 - move=>Bj.
   have H1 := below_vimp_tail _ _ _  Bj.
   move/implyP: (below_vimp_head j l (Imp a b))=>/(_ Bj) {Bj}/= /andP [Ba Bb].
@@ -140,10 +140,10 @@ Qed.
 
 Lemma rule_gamma_falsum gamma work ctx i j :
   i < j ->
-  search_spec (Atom i) gamma work ctx j ->
-  search_spec Falsum gamma work ctx i.
+  csearch_spec (Atom i) gamma work ctx j ->
+  csearch_spec Falsum gamma work ctx i.
 Proof.
-rewrite /search_spec=>L S0 Bi Bg Bc S M.
+rewrite /csearch_spec=>L S0 Bi Bg Bc S M.
 case: S0=>//.
 - by move: Bg; apply/implyP/less_below_list_imply.
 - by move: Bc; apply/implyP/less_below_list_imply.
@@ -153,10 +153,10 @@ by apply: (refutable _ _ _ _ k).
 Qed.
 
 Lemma rule_gamma_a_imp_b a b gamma work ctx j :
-  search_spec b (a :: gamma) work (a :: ctx) j ->
-  search_spec (Imp a b) gamma work ctx j.
+  csearch_spec b (a :: gamma) work (a :: ctx) j ->
+  csearch_spec (Imp a b) gamma work ctx j.
 Proof.
-rewrite /search_spec=>/= + /andP [Ba Bb] Bg Bc S M.
+rewrite /csearch_spec=>/= + /andP [Ba Bb] Bg Bc S M.
 case=>//.
 - by rewrite Ba.
 - by rewrite Ba.
@@ -174,10 +174,10 @@ Qed.
 
 Lemma rule_gamma_a a gamma work ctx j j1 :
   j < j1 ->
-  search_spec (Atom j) (Imp a (Atom j) :: gamma) work (Imp a (Atom j) :: ctx) j1 ->
-  search_spec a gamma work ctx j.
+  csearch_spec (Atom j) (Imp a (Atom j) :: gamma) work (Imp a (Atom j) :: ctx) j1 ->
+  csearch_spec a gamma work ctx j.
 Proof.
-rewrite /search_spec=>/= L + Bj Bg Bc S M.
+rewrite /csearch_spec=>/= L + Bj Bg Bc S M.
 have Bj1 : below_form a j1 by move: Bj; apply/implyP/less_below_form_imply.
 rewrite L Bj1 andbT /=.
 case=>//.
@@ -203,10 +203,10 @@ Qed.
 (* rules for   ... vimp l (AndF a b) :: gamma ... *)
 
 Lemma rule_vimp_conj_gamma goal l b0 b1 gamma work ctx j :
-  search_spec goal [:: vimp l b0, vimp l b1 & gamma] work ctx j ->
-  search_spec goal (vimp l (AndF b0 b1) :: gamma) work ctx j.
+  csearch_spec goal [:: vimp l b0, vimp l b1 & gamma] work ctx j ->
+  csearch_spec goal (vimp l (AndF b0 b1) :: gamma) work ctx j.
 Proof.
-rewrite /search_spec=>/= + Bg /andP [Bv Bg0] Bc S M.
+rewrite /csearch_spec=>/= + Bg /andP [Bv Bg0] Bc S M.
 case=>//.
 - apply/and3P; split=>//; move: Bv; apply/implyP/below_vimp=>/= z; rewrite implybE negb_and.
   - by rewrite orbC orbA orbN.
@@ -226,9 +226,9 @@ Qed.
 
 Lemma rule_vimp_conj_gamma_new goal l b0 b1 gamma work ctx j j1 :
   j < j1 ->
-  search_spec goal [::vimp [::j] b0, vimp [::j] b1 & gamma] (nvimp l (NAtom j) :: work)
+  csearch_spec goal [::vimp [::j] b0, vimp [::j] b1 & gamma] (nvimp l (NAtom j) :: work)
                    [::vimp l (Atom j), Imp (Atom j) (AndF b0 b1) & ctx] j1 ->
-  search_spec goal (vimp l (AndF b0 b1) :: gamma) work ctx j.
+  csearch_spec goal (vimp l (AndF b0 b1) :: gamma) work ctx j.
 Proof.
 move=>L S0.
 apply: (rule_vimp_a_gamma _ _ _ _ _ _ _ j1)=>//.
@@ -239,10 +239,10 @@ Qed.
 (* rules for   ... vimp l (OrF a b) :: gamma ... *)
 
 Lemma rule_vimp_falsum_or_a_gamma goal l a gamma work ctx j :
-  search_spec goal (vimp l a :: gamma) work ctx j ->
-  search_spec goal (vimp l (OrF Falsum a) :: gamma) work ctx j.
+  csearch_spec goal (vimp l a :: gamma) work ctx j ->
+  csearch_spec goal (vimp l (OrF Falsum a) :: gamma) work ctx j.
 Proof.
-rewrite /search_spec=>/= + Bg /andP [Bv Bg0] Bc S M.
+rewrite /csearch_spec=>/= + Bg /andP [Bv Bg0] Bc S M.
 case=>//.
 - by rewrite Bg0 andbT; move: Bv; apply/implyP/below_vimp.
 - apply/sound_cons_gamma_weak/S/derivable_vimp=>ctx0.
@@ -257,10 +257,10 @@ by apply: forces_vimp_t=>* /=; right.
 Qed.
 
 Lemma rule_vimp_a_or_falsum_gamma goal l a gamma work ctx j :
-  search_spec goal (vimp l a :: gamma) work ctx j ->
-  search_spec goal (vimp l (OrF a Falsum) :: gamma) work ctx j.
+  csearch_spec goal (vimp l a :: gamma) work ctx j ->
+  csearch_spec goal (vimp l (OrF a Falsum) :: gamma) work ctx j.
 Proof.
-rewrite /search_spec=>/= + Bg /andP [Bv Bg0] Bc S M.
+rewrite /csearch_spec=>/= + Bg /andP [Bv Bg0] Bc S M.
 case=>//.
 - by rewrite Bg0 andbT; move: Bv; apply/implyP/below_vimp=>/= z; rewrite andbT.
 - apply/sound_cons_gamma_weak/S/derivable_vimp=>ctx0.
@@ -276,12 +276,12 @@ Qed.
 
 Lemma rule_vimp_atom_or_a_gamma goal l i a gamma work ctx j j1 :
   j < j1 ->
-  search_spec goal (Imp (Atom j) a :: gamma) (nvimp l (NDisj i j) :: work)
+  csearch_spec goal (Imp (Atom j) a :: gamma) (nvimp l (NDisj i j) :: work)
               [:: vimp l (OrF (Atom i) (Atom j)), Imp (Atom j) a & ctx] j1 ->
-  search_spec goal (vimp l (OrF (Atom i) a) :: gamma) work ctx j.
+  csearch_spec goal (vimp l (OrF (Atom i) a) :: gamma) work ctx j.
 Proof.
 move=>L S0.
-apply: (search_spec_subst_gamma_pos _ _ _ _ _ j1 a (vimp l (OrF (Atom i) (Atom j))))=>//.
+apply: (csearch_spec_subst_gamma_pos _ _ _ _ _ j1 a (vimp l (OrF (Atom i) (Atom j))))=>//.
 - move=>Bj.
   have H1 := below_vimp_tail _ _ _  Bj.
   move/implyP: (below_vimp_head j l (OrF (Atom i) a))=>/(_ Bj) /= /andP [Hij {}Bj].
@@ -298,12 +298,12 @@ Qed.
 
 Lemma rule_vimp_a_or_b_gamma goal l a b gamma work ctx j j1 :
   j < j1 ->
-  search_spec goal [:: vimp l (OrF (Atom j) b), vimp [::j] a & gamma]
+  csearch_spec goal [:: vimp l (OrF (Atom j) b), vimp [::j] a & gamma]
               work [:: vimp l (OrF (Atom j) b), Imp (Atom j) a & ctx] j1 ->
-  search_spec goal (vimp l (OrF a b) :: gamma) work ctx j.
+  csearch_spec goal (vimp l (OrF a b) :: gamma) work ctx j.
 Proof.
 move=>L S0.
-apply: (search_spec_subst_gamma_pos _ _ _ _ _ j1 a (vimp l (OrF (Atom j) b)))=>//.
+apply: (csearch_spec_subst_gamma_pos _ _ _ _ _ j1 a (vimp l (OrF (Atom j) b)))=>//.
 - move=>Bj.
   have H1 := below_vimp_tail _ _ _  Bj.
   move/implyP: (below_vimp_head j l (OrF a b))=>/(_ Bj) /= /andP {Bj}[Ba Bb].
@@ -321,10 +321,10 @@ Qed.
 (* rules for   ... vimp l (Imp Falsum b) :: gamma ... *)
 
 Lemma rule_vimp_falsum_imp_b_gamma goal l b gamma work ctx j :
-  search_spec goal gamma work ctx j ->
-  search_spec goal (vimp l (Imp Falsum b) :: gamma) work ctx j.
+  csearch_spec goal gamma work ctx j ->
+  csearch_spec goal (vimp l (Imp Falsum b) :: gamma) work ctx j.
 Proof.
-rewrite /search_spec=>/= + Bg /andP [Bv Bg0] Bc S M.
+rewrite /csearch_spec=>/= + Bg /andP [Bv Bg0] Bc S M.
 case=>//.
 - by apply/sound_cons_gamma_tail/S.
 - rewrite /minimal=>k Mk Fk.
@@ -342,8 +342,8 @@ Qed.
 (* rules for   ... vimp l (Imp (Atom i) b)) :: gamma ... *)
 
 Lemma rule_vimp_atom_imp_b_gamma goal l i b gamma work ctx j :
-  search_spec goal (vimp (i :: l) b :: gamma) work ctx j ->
-  search_spec goal (vimp l (Imp (Atom i) b) :: gamma) work ctx j.
+  csearch_spec goal (vimp (i :: l) b :: gamma) work ctx j ->
+  csearch_spec goal (vimp l (Imp (Atom i) b) :: gamma) work ctx j.
 Proof. by []. Qed.
 
 
@@ -351,10 +351,10 @@ Proof. by []. Qed.
 (* rules for   ... Imp (AndF a0 a1) b :: gamma ... *)
 
 Lemma rule_vimp_and_imp_gamma goal l a0 a1 b gamma work ctx j :
-  search_spec goal (vimp l (Imp a0 (Imp a1 b)) :: gamma) work ctx j ->
-  search_spec goal (vimp l (Imp (AndF a0 a1) b) :: gamma) work ctx j.
+  csearch_spec goal (vimp l (Imp a0 (Imp a1 b)) :: gamma) work ctx j ->
+  csearch_spec goal (vimp l (Imp (AndF a0 a1) b) :: gamma) work ctx j.
 Proof.
-rewrite /search_spec=>/= + Bg /andP [Bv Bg0] Bc S M.
+rewrite /csearch_spec=>/= + Bg /andP [Bv Bg0] Bc S M.
 case=>//.
 - rewrite Bg0 andbT.
   by move: Bv; apply/implyP/below_vimp=>z /=; rewrite andbA.
@@ -376,10 +376,10 @@ Qed.
 (* rules for   ... vimp l (Imp (OrF a0 a1) b) :: gamma ... *)
 
 Lemma rule_vimp_or_imp_gamma goal l a0 a1 b gamma work ctx j :
-  search_spec goal [:: vimp l (Imp a0 b), vimp l (Imp a1 b) & gamma] work ctx j ->
-  search_spec goal (vimp l (Imp (OrF a0 a1) b) :: gamma) work ctx j.
+  csearch_spec goal [:: vimp l (Imp a0 b), vimp l (Imp a1 b) & gamma] work ctx j ->
+  csearch_spec goal (vimp l (Imp (OrF a0 a1) b) :: gamma) work ctx j.
 Proof.
-rewrite /search_spec=>/= + Bg /andP [Bv Bg0] Bc S M.
+rewrite /csearch_spec=>/= + Bg /andP [Bv Bg0] Bc S M.
 case=>//.
 - by rewrite Bg0 andbT; apply/andP; split; move: Bv; apply/implyP/below_vimp=>z /=;
      apply/implyP; [rewrite andbAC | rewrite -andbA]; case/andP.
@@ -398,9 +398,9 @@ Qed.
 
 Lemma rule_vimp_or_imp_gamma_new goal l a0 a1 b gamma work ctx j j1 :
   j < j1 ->
-  search_spec goal [:: vimp l (Imp a0 (Atom j)), vimp l (Imp a1 (Atom j)), vimp [::j] b & gamma] work
+  csearch_spec goal [:: vimp l (Imp a0 (Atom j)), vimp l (Imp a1 (Atom j)), vimp [::j] b & gamma] work
                    [:: vimp l (Imp (OrF a0 a1) (Atom j)), Imp (Atom j) b & ctx] j1 ->
-  search_spec goal (vimp l (Imp (OrF a0 a1) b) :: gamma) work ctx j.
+  csearch_spec goal (vimp l (Imp (OrF a0 a1) b) :: gamma) work ctx j.
 Proof.
 move=>L S0.
 apply: (rule_vimp_imp_gamma _ _ _ _ _ _ _ _ j1)=>//.
@@ -411,10 +411,10 @@ Qed.
 (* rules for   ... vimp l (Imp (Imp a b) c) :: gamma ... *)
 
 Lemma rule_vimp_falsum_imp_imp_gamma goal l b c gamma work ctx j :
-  search_spec goal (vimp l c :: gamma) work ctx j ->
-  search_spec goal (vimp l (Imp (Imp Falsum b) c) :: gamma) work ctx j.
+  csearch_spec goal (vimp l c :: gamma) work ctx j ->
+  csearch_spec goal (vimp l (Imp (Imp Falsum b) c) :: gamma) work ctx j.
 Proof.
-rewrite /search_spec=>/= + Bg /andP [Bv Bg0] Bc S M.
+rewrite /csearch_spec=>/= + Bg /andP [Bv Bg0] Bc S M.
 case=>//.
 - rewrite Bg0 andbT; move: Bv; apply/implyP/below_vimp=>z /=.
   by rewrite implybE negb_and -orbA orNb orbT.
@@ -434,11 +434,11 @@ Qed.
 
 Lemma rule_vimp_imp_falsum_imp_gamma goal l a c gamma work ctx j j1 :
   j < j1 ->
-  search_spec goal (vimp l (Imp (Imp a (Atom j)) c) :: gamma) work
+  csearch_spec goal (vimp l (Imp (Imp a (Atom j)) c) :: gamma) work
                    (vimp l (Imp (Imp a (Atom j)) c) :: ctx) j1 ->
-  search_spec goal (vimp l (Imp (Imp a Falsum) c) :: gamma) work ctx j.
+  csearch_spec goal (vimp l (Imp (Imp a Falsum) c) :: gamma) work ctx j.
 Proof.
-rewrite /search_spec=>/= L S0 Bg /andP [Bv Bg0] Bj S M.
+rewrite /csearch_spec=>/= L S0 Bg /andP [Bv Bg0] Bj S M.
 have H1 := below_vimp_tail _ _ _  Bv.
 move/implyP: (below_vimp_head j l (Imp (Imp a Falsum) c))=>/(_ Bv) /=.
 rewrite andbT => {Bv}/andP [Ba Bc].
@@ -476,9 +476,9 @@ Qed.
 
 Lemma rule_atom_imp_atom_imp_c_gamma goal l a b c gamma work ctx j j1 :
   j < j1 ->
-  search_spec goal (Imp (Atom j) c :: gamma) (nvimp l (NImp_NF (NImp a b (NAtom j))) :: work)
+  csearch_spec goal (Imp (Atom j) c :: gamma) (nvimp l (NImp_NF (NImp a b (NAtom j))) :: work)
                    [:: vimp l (Imp (Imp (Atom a) (Atom b)) (Atom j)), Imp (Atom j) c & ctx] j1 ->
-  search_spec goal (vimp l (Imp (Imp (Atom a) (Atom b)) c) :: gamma) work ctx j.
+  csearch_spec goal (vimp l (Imp (Imp (Atom a) (Atom b)) c) :: gamma) work ctx j.
 Proof.
 move=>L S0.
 apply: (rule_vimp_imp_gamma _ _ _ _ _ _ _ _ j1)=>//.
@@ -487,11 +487,11 @@ Qed.
 
 Lemma rule_atom_imp_b_imp_c_gamma goal l a b c gamma work ctx j j1 :
   j < j1 ->
-  search_spec goal [:: vimp l (Imp (Imp (Atom a) (Atom j)) c), vimp (a :: l) (Imp b (Atom j)) & gamma] work
+  csearch_spec goal [:: vimp l (Imp (Imp (Atom a) (Atom j)) c), vimp (a :: l) (Imp b (Atom j)) & gamma] work
                    [:: vimp l (Imp (Imp (Atom a) (Atom j)) c), vimp (a :: l) (Imp b (Atom j)) & ctx] j1 ->
-  search_spec goal (vimp l (Imp (Imp (Atom a) b) c) :: gamma) work ctx j.
+  csearch_spec goal (vimp l (Imp (Imp (Atom a) b) c) :: gamma) work ctx j.
 Proof.
-rewrite /search_spec=>/= L S0 Bg /andP [Bv Bg0] Bj S M.
+rewrite /csearch_spec=>/= L S0 Bg /andP [Bv Bg0] Bj S M.
 have H1 := below_vimp_tail _ _ _  Bv.
 move/implyP: (below_vimp_head j l (Imp (Imp (Atom a) b) c))=>/(_ Bv) /=.
 rewrite -andbA; case/and3P=>Ha Bb Bc.
@@ -561,12 +561,12 @@ Qed.
 
 Lemma rule_a_imp_b_imp_c_gamma goal l a b c gamma work ctx j j1 :
   j < j1 ->
-  search_spec goal [:: vimp l (Imp (Imp (Atom j) b) c), Imp (Atom j) a & gamma] work
+  csearch_spec goal [:: vimp l (Imp (Imp (Atom j) b) c), Imp (Atom j) a & gamma] work
                    [:: vimp l (Imp (Imp (Atom j) b) c), Imp (Atom j) a & ctx] j1 ->
-  search_spec goal (vimp l (Imp (Imp a b) c) :: gamma) work ctx j.
+  csearch_spec goal (vimp l (Imp (Imp a b) c) :: gamma) work ctx j.
 Proof.
 move=>L S0.
-apply: (search_spec_subst_gamma_pos _ _ _ _ _ j1 a (vimp l (Imp (Imp (Atom j) b) c)))=>//.
+apply: (csearch_spec_subst_gamma_pos _ _ _ _ _ j1 a (vimp l (Imp (Imp (Atom j) b) c)))=>//.
 - move=>Bj.
   have H1 := below_vimp_tail _ _ _  Bj.
   move/implyP: (below_vimp_head j l (Imp (Imp a b) c))=>/(_ Bj) /=.

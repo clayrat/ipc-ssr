@@ -18,12 +18,10 @@ Variant nsearch_spec_result_aux (goal : A) (work : seq (normal_form A))
       ~ forces_t k (Atom goal).
 
 Variant nsearch_spec_result goal work ds ni ai a ctx : Type :=
-  NSearch_Res :
-    forall ni1,
-    le_ni ni1 ni ->
-    deco_sound work ds ni1 ai a ->
-    nsearch_spec_result_aux goal work ds ni1 ai a ctx ->
-    nsearch_spec_result goal work ds ni ai a ctx.
+  NSearch_Res ni1 of
+    le_ni ni1 ni &
+    deco_sound work ds ni1 ai a &
+    nsearch_spec_result_aux goal work ds ni1 ai a ctx.
 
 Definition nsearch_spec goal work ds ni ai a ctx : Type :=
   deco_sound work ds ni ai a ->

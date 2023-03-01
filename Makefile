@@ -1,19 +1,22 @@
-# KNOWNTARGETS will not be passed along to CoqMakefile
-KNOWNTARGETS := CoqMakefile
-# KNOWNFILES will not get implicit targets from the final rule, and so depending on them won’t invoke the submake
-# Warning: These files get declared as PHONY, so any targets depending on them always get rebuilt
-KNOWNFILES := Makefile _CoqProject
+OCAMLBUILD = ocamlbuild -tag safe_string -pkg zarith -I src
 
-.DEFAULT_GOAL := invoke-coqmakefile
+default: Makefile.coq
+	+$(MAKE) -f Makefile.coq
 
-CoqMakefile: Makefile _CoqProject
-	$(COQBIN)coq_makefile -f _CoqProject -o CoqMakefile
+benchmark: default
+	$(OCAMLBUILD) benchmark.native
 
-invoke-coqmakefile: CoqMakefile
-	$(MAKE) --no-print-directory -f CoqMakefile $(filter-out $(KNOWNTARGETS),$(MAKECMDGOALS))
+clean: Makefile.coq
+	+$(MAKE) -f Makefile.coq cleanall
+	rm -f Makefile.coq Makefile.coq.conf src/search.ml src/search.mli
+	$(OCAMLBUILD) -clean
 
-.PHONY: invoke-coqmakefile $(KNOWNFILES)
+Makefile.coq: _CoqProject
+	$(COQBIN)coq_makefile -f _CoqProject -o Makefile.coq
 
-# This should be the last rule, to handle any targets not declared above
-%: invoke-coqmakefile
-	@true
+_CoqProject Makefile: ;
+
+%: Makefile.coq
+	+$(MAKE) -f Makefile.coq $@
+
+.PHONY: default benchmark clean
